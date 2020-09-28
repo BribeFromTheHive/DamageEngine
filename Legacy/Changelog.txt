@@ -1,0 +1,29 @@
+1.0.0.0 - Release of Damage Event
+2.0.0.0 - Release of Damage Engine which combines Damage Modifier
+2.1.0.0 - Circumvented a very lame wc3 bug that's making the timer expire twice. It's still expiring twice but there's nothing I can do to figure out why.
+2.2.0.0 - Fixed the double expire bug completely and fixed a bug that could give weird life/max life readings.
+2.2.1.0 - Fixed a really nasty bug with the engine corrupting Unit Indexer after recreating the Damage Event trigger.
+3.0.0.0 - Fixed everything and added Spell Damage Detection!
+3.0.1.0 - Fixed triggered damage bug when it was set very high, and fixed recursion so it stops at 16 recursive events instead of at a potentially-buggy time.
+3.0.2.0 - Fixed bug that ethereal units didn't have spell damage amplification and that Elune's Grace wasn't reducing spell damage.
+3.0.3.0 - Added a get unit life/max life function and fixed a bug where heroes were getting their damage amped too much from banish.
+3.1.0.0 - no longer uses a timer. Also, got rid of the override/explodes booleans. Use DamageEventType instead.
+3.1.1.0 - uses a timer in addition to the event in case the event didn't go off.
+3.1.2.0 - has improved unit state event handling for better results.
+3.1.3.0 - fixed a potential recursion issue introduced when I switched to unit state events.
+3.1.3.1 - improved the accuracy of spell damage affecting a unit state change.
+3.2.0.0 - added a bunch of optional textmacros for an upcoming optional vJass plugin.
+3.3.0.0 - got rid of the textmacros. Now requires you to use the variable "NextDamageType" before dealing triggered damage. Code now uses as little custom script as possible.
+3.4.0.0 - integrated Mana Shield processing. Requires the user to set Damage Absorbed % to 0.00 for both Mana Shield abilities and for all 3 level
+3.5.0.0 - decoupled Mana Shield from DamageEngine and split DamageModification into 4 parts. Added a custom Anti-Magic Shell to the test map which can be used as a template for any kind of shield. Fixed a recursion issue. Re-applied backwards-compatibility with scripts that used DamageEventOverride.
+3.5.1.0 - Fixed a bug introduced with a previous damage processing update. Thanks to kruzerg and Spellbound for finding this bug with the system!
+3.5.2.0 - Fixed a bug with tornado slow aura and made a couple minor improvements.
+3.5.3.0 - In the previous update I disabled the zero-damage event from working normally. This update reverts that, as I found there was a bug with recursion with that event which I have now fixed. I also made several other minor improvements.
+3.5.3.1 - Fixed an extremely-rare issue with recursive damage modifier events not guaranteed to fire if they were greater than 1.
+3.5.4.0 - Fixed a bug with recursive events not firing 100% of the time. Added a boolean called NextDamageOverride that will let you skip the main 3 damage modifier events and built-in spell damage modifier, allowing you to deal "true" damage (which can still be reduced by shields). Added a feature to ClearDamageEvent to set NextDamageOverride to false and NextDamageType to 0 in case the damage engine didn't run due to spell immunity or invulnerability.
+3.5.4.1 - Fixed a bug introduced with the ClearDamageEvent change preventing both NextDamageX from working together. So as to not introduce potentially-new bugs I will only do bug fixes in the near future.
+3.6.0.0 - Converted everything to JASS, removed numerous extra variables, added a HideDamageFrom boolean array so users can opt to not run DamageEvents and AfterDamageEvents from those units. DamageModifierEvents will still run.
+3.6.0.1 - Fixed a potential handle ID issue if the user was using the compatibility setting with looking_for_help's PDD. Changed the compatibility script for PDD to compensate for it being integrated into Damage Engine. Updated the demo map behavior for the Knight so he now deals 4x instead of takes it.
+3.6.1.0 - Fixed a major recursion misflag caused by storing RecursionN to a local before potentially modifying RecursionN in the CheckForDamage function. Thanks to ssbbssc2 and Jampion for pointing this out!
+3.7.0.0 - Added some new variables to detect when a unit has been damaged by the same source multiple times in one instance (udg_DamageEventLevel tracks how many times this has happened in this moment). The other variables detect AOE damage and provide an event after all the AOE damage has been fully applied.
+3.8.0.0 - Fixed issues plaguing users of patch 1.29 by updating Damage Engine and Unit Indexer to compensate for the player slot state increase.
