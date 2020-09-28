@@ -1,0 +1,136 @@
+Damage Engine Config
+    Events
+        Map initialization
+        Game - DamageModifierEvent becomes Greater than 0.00
+        Game - LethalDamageEvent becomes Less than or equal to 0.00
+        Game - DamageEvent becomes Not equal to 0.00
+        Game - AfterDamageEvent becomes Less than 0.00
+        Game - AOEDamageEvent becomes Greater than or equal to 0.00
+    Conditions
+    Actions
+        -------- - --------
+        -------- New in Damage Engine 5.7 - you can use the below to automatically assign conditions --------
+        -------- - --------
+        -------- Equal to - Same as no conditions, works as it always has --------
+        -------- Less than - Same as IsDamageAttack Equal to True --------
+        -------- Less than or equal to - Same as IsDamageMelee Equal to True --------
+        -------- Greater than or equal to - Same as IsDamageRanged Equal to True --------
+        -------- Greater than - Same as IsDamageSpell Equal to True --------
+        -------- Not Equal to - Same as IsDamageCode Equal to True --------
+        -------- - --------
+        -------- You can add extra classifications here if you want to differentiate between your triggered damage --------
+        -------- Use DamageTypeExplosive (or any negative value damage type) if you want a unit killed by that damage to explode --------
+        -------- - --------
+        -------- The pre-defined type Code might be set by Damage Engine if Unit - Damage Target is detected and the user didn't define a type of their own. --------
+        -------- "Pure" is especially important because it overrides both the Damage Engine as well as WarCraft 3 damage modification. --------
+        -------- I therefore gave the user "Explosive Pure" in case one wants to combine the functionality of the two. --------
+        -------- - --------
+        Set VariableSet DamageTypePureExplosive = -2
+        Set VariableSet DamageTypeExplosive = -1
+        Set VariableSet DamageTypeCode = 1
+        Set VariableSet DamageTypePure = 2
+        -------- - --------
+        Set VariableSet DamageTypeHeal = 3
+        Set VariableSet DamageTypeBlocked = 4
+        Set VariableSet DamageTypeReduced = 5
+        -------- - --------
+        Set VariableSet DamageTypeCriticalStrike = 6
+        -------- - --------
+        -------- Added 25 July 2017 to allow detection of things like Bash or Pulverize or AOE spread --------
+        -------- - --------
+        Set VariableSet DamageEventAOE = 1
+        Set VariableSet DamageEventLevel = 1
+        -------- - --------
+        -------- In-game World Editor doesn't allow Attack Type and Damage Type comparisons. Therefore I need to code them as integers into GUI --------
+        -------- - --------
+        Set VariableSet ATTACK_TYPE_SPELLS = 0
+        Set VariableSet ATTACK_TYPE_NORMAL = 1
+        Set VariableSet ATTACK_TYPE_PIERCE = 2
+        Set VariableSet ATTACK_TYPE_SIEGE = 3
+        Set VariableSet ATTACK_TYPE_MAGIC = 4
+        Set VariableSet ATTACK_TYPE_CHAOS = 5
+        Set VariableSet ATTACK_TYPE_HERO = 6
+        -------- - --------
+        Set VariableSet DAMAGE_TYPE_UNKNOWN = 0
+        Set VariableSet DAMAGE_TYPE_NORMAL = 4
+        Set VariableSet DAMAGE_TYPE_ENHANCED = 5
+        Set VariableSet DAMAGE_TYPE_FIRE = 8
+        Set VariableSet DAMAGE_TYPE_COLD = 9
+        Set VariableSet DAMAGE_TYPE_LIGHTNING = 10
+        Set VariableSet DAMAGE_TYPE_POISON = 11
+        Set VariableSet DAMAGE_TYPE_DISEASE = 12
+        Set VariableSet DAMAGE_TYPE_DIVINE = 13
+        Set VariableSet DAMAGE_TYPE_MAGIC = 14
+        Set VariableSet DAMAGE_TYPE_SONIC = 15
+        Set VariableSet DAMAGE_TYPE_ACID = 16
+        Set VariableSet DAMAGE_TYPE_FORCE = 17
+        Set VariableSet DAMAGE_TYPE_DEATH = 18
+        Set VariableSet DAMAGE_TYPE_MIND = 19
+        Set VariableSet DAMAGE_TYPE_PLANT = 20
+        Set VariableSet DAMAGE_TYPE_DEFENSIVE = 21
+        Set VariableSet DAMAGE_TYPE_DEMOLITION = 22
+        Set VariableSet DAMAGE_TYPE_SLOW_POISON = 23
+        Set VariableSet DAMAGE_TYPE_SPIRIT_LINK = 24
+        Set VariableSet DAMAGE_TYPE_SHADOW_STRIKE = 25
+        Set VariableSet DAMAGE_TYPE_UNIVERSAL = 26
+        -------- - --------
+        -------- The below variables don't affect damage amount, but do affect the sound played --------
+        -------- They also give important information about the type of attack used. --------
+        -------- They can differentiate between ranged and melee for units who are both --------
+        -------- - --------
+        Set VariableSet WEAPON_TYPE_NONE = 0
+        -------- Metal Light/Medium/Heavy --------
+        Set VariableSet WEAPON_TYPE_ML_CHOP = 1
+        Set VariableSet WEAPON_TYPE_MM_CHOP = 2
+        Set VariableSet WEAPON_TYPE_MH_CHOP = 3
+        Set VariableSet WEAPON_TYPE_ML_SLICE = 4
+        Set VariableSet WEAPON_TYPE_MM_SLICE = 5
+        Set VariableSet WEAPON_TYPE_MH_SLICE = 6
+        Set VariableSet WEAPON_TYPE_MM_BASH = 7
+        Set VariableSet WEAPON_TYPE_MH_BASH = 8
+        Set VariableSet WEAPON_TYPE_MM_STAB = 9
+        Set VariableSet WEAPON_TYPE_MH_STAB = 10
+        -------- Wood Light/Medium/Heavy --------
+        Set VariableSet WEAPON_TYPE_WL_SLICE = 11
+        Set VariableSet WEAPON_TYPE_WM_SLICE = 12
+        Set VariableSet WEAPON_TYPE_WH_SLICE = 13
+        Set VariableSet WEAPON_TYPE_WL_BASH = 14
+        Set VariableSet WEAPON_TYPE_WM_BASH = 15
+        Set VariableSet WEAPON_TYPE_WH_BASH = 16
+        Set VariableSet WEAPON_TYPE_WL_STAB = 17
+        Set VariableSet WEAPON_TYPE_WM_STAB = 18
+        -------- Claw Light/Medium/Heavy --------
+        Set VariableSet WEAPON_TYPE_CL_SLICE = 19
+        Set VariableSet WEAPON_TYPE_CM_SLICE = 20
+        Set VariableSet WEAPON_TYPE_CH_SLICE = 21
+        -------- Axe Medium --------
+        Set VariableSet WEAPON_TYPE_AM_CHOP = 22
+        -------- Rock Heavy --------
+        Set VariableSet WEAPON_TYPE_RH_BASH = 23
+        -------- - --------
+        -------- Since GUI still doesn't provide Defense Type and Armor Types, I needed to include the below --------
+        -------- - --------
+        Set VariableSet ARMOR_TYPE_NONE = 0
+        Set VariableSet ARMOR_TYPE_FLESH = 1
+        Set VariableSet ARMOR_TYPE_METAL = 2
+        Set VariableSet ARMOR_TYPE_WOOD = 3
+        Set VariableSet ARMOR_TYPE_ETHEREAL = 4
+        Set VariableSet ARMOR_TYPE_STONE = 5
+        -------- - --------
+        Set VariableSet DEFENSE_TYPE_LIGHT = 0
+        Set VariableSet DEFENSE_TYPE_MEDIUM = 1
+        Set VariableSet DEFENSE_TYPE_HEAVY = 2
+        Set VariableSet DEFENSE_TYPE_FORTIFIED = 3
+        Set VariableSet DEFENSE_TYPE_NORMAL = 4
+        Set VariableSet DEFENSE_TYPE_HERO = 5
+        Set VariableSet DEFENSE_TYPE_DIVINE = 6
+        Set VariableSet DEFENSE_TYPE_UNARMORED = 7
+        -------- - --------
+        Set VariableSet DamageFilterAttackT = -1
+        Set VariableSet DamageFilterDamageT = -1
+        Set VariableSet DamageFilterMinAmount = (Real(DamageFilterType))
+        Set VariableSet DamageFilterSourceB = DamageFilterTargetB
+        Set VariableSet DamageFilterSourceT = DamageFilterTargetT
+        Set VariableSet DamageFilterSource = DamageFilterTarget
+        -------- - --------
+        Custom script:   call DamageEngine_DebugStr()
