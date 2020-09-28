@@ -1,0 +1,84 @@
+5.7.1.1 - Fixed an issue with the eventFilter not retaining its value during an AOE event. Fixed an issue with eventFilter when USE_MELEE_RANGE was set to false. Both issues reported by @lolreported
+5.7.1.0 -
+I have fixed several potential points of failure reported by multiple users that stopped Damage Engine from working for the rest of the game. In any case there should no longer be ANY SITUATION where Damage Engine just "stops working", even in ways I can't predict. The most likely issue was with DamageScalingWC3/User having possible 0-division errors.
+
+Fixed the "configured" issue reported by @lolreported where manual configuration didn't work unless the damage and attack type checks were initialized tto -1.
+
+In addition to these fixed bugs, I have added several more static ifs so that advanced users have more control over getting rid of features they might not care about.​
+
+5.7.0.3 - Fixed the issue reported by @KitsuneTailsPrower wherein the DamageInterface extension wasn't working. This needed to be fixed both in the Damage Engine source as well as the DamageInterface plugin itself.
+5.7.0.2 - Fixed the issue reported by @Wazzz where the armor reduction wasn't taken into consideration. Actually there was a much bigger flaw that I had overlooked that was prompting this.
+5.7.0.1 - Improved the logic of the 0 damage event.
+5.7.0.0:
+Usage of the "DamageEvent becomes EQUAL to 1.00" now can be extrapolated further than ever before:
+EQUAL works as it always has.
+NOT EQUAL only runs for code damage.
+LESS THAN only runs for damage from attacks.
+LESS THAN OR EQUAL only runs for melee attacks.
+GREATER THAN OR EQUAL only runs for ranged attacks.
+GREATER THAN only runs for Spell damage.
+Fully adapted Damage Engine to work with every other major DDS
+Rewrote the internal script to use vJass structs: Damage and DamageTrigger.
+Changed some of the vJass API. You can find the API listed in the Damage Engine trigger. Notably:
+I removed UnitDamageTargetEx. You can replace this with Damage.apply.
+The reason for this change is because of cross-compatibility. Rising Dusk's IDDS uses a different set of parameters for this function, so I removed it from my library to allow this to work seamlessly.
+TriggerRegisterDamageEvent -> TriggerRegisterDamageEngine
+RegisterDamageEvent -> RegisterDamageEngine
+The reason for the above two changes is, like for UnitDamageTargetEx, because Rising Dusk's IDDS uses them. I don't want to make the same mistake I did with Table's API and preferred to walk back my API choices before things got out of hand again.
+Various performance tweaks, bug fixes and re-commenting of variables.
+Recursive damage is now processed more intelligently and possibly be more performance-friendly.
+Adapted the cross-compatibility libraries for Weep and LFH's systems to use textmacros to insert themselves into Damage Engine (this might have been in the 5.6 update, but these two updates were both tailored to achieve similar goals).
+5.6.2.0 - Fixed a bug with Damage modification and laid groundwork for a bunch of optional vJass compatibility addons.
+5.6.1.0 - Patchwork on Melee/Ranged detection, recursion tracking. Also added the ability to modify damage from a DamageEvent to make it easier on beginners.
+5.6.0.1 - Fixed an issue where the DamageEventType for recursive damage that used NextDamageType would always default to DamageTypeCode.
+5.6.0.0
+Rewrote a significant amount of the internal code so that struct and GUI syntax both work - and are synchronized with each other. vJass-exclusive users can disable the GUI synchronization if they don't use any GUI damage events in their maps.
+
+Four new variables must be added to your variable editor:
+boolean NextDamageIsAttack
+boolean NextDamageIsMelee
+boolean NextDamageIsRanged
+integer NextDamageWeaponT
+Struct syntax should not need too much introduction - Damage.index is the triggering event ID, and the syntax is Damage.index.amount/source/target/etc. To initialize a JASS damage event, use:
+
+Code (vJASS):
+
+function RegisterDamageEvent takes code c, string eventName, real value returns nothing
+
+The string is simplified: "Modifier", "" (for simple DamageEvent), "After", "Lethal", "AOE"
+ 
+
+
+Finally, a neat QOL improvement is that I have assigned weight to each of the events. When registering an event, you can include numbers different than 1, 2, 3 or 4 (for modification) or just the plain "1" for the others. Now you can set your own sequencing and use 1.5, 3.14 or even -1 to give an even more extreme priority to something. Lower numbers run first, higher ones last.
+
+5.5.0.0 - Added support for the new native BlzGetEventIsAttack via "IsDamageAttack". Also updated the Config trigger to make importing a bit easier
+5.4.2.3 - Fixed a mis-flag of the IsDamageSpell value when not being actual spell damage.
+5.4.2.2 - Actually fixed the Cold Arrows issue (division by 0.00001 or something ...somehow... either way, it is fixed).
+5.4.2.1 - A fix which should hopefully quell the recent reports of damage events failing in complex situations involving Cold Arrows.
+5.4.2.0 - A ton of fixes to repair the issues plaguing Sunken City and anyone else who might be pushing this engine well beyond what I imagined it would be used for. Also added a couple of variables intended to be used to ricochet damage: CONVERTED_ATTACK_TYPE and CONVERTED_DAMAGE_TYPE. Check the demo map for how they can be used in a Unit - Damage Target action.
+5.4.1.0 - The "Inception" update. Advanced users can interact with Damage Engine via custom script to set DamageEvent_inception = true to allow their damage to potentially go recursive (to a fixed extent).
+5.4.0.1 - Hotfixed that modifiers 2 and 3 weren't running.
+5.4.0.0 - By using an innovative approach of hooking TriggerRegisterVariableEvent, I've permanently eliminated all risks of recursion in the engine.
+5.3.0.1 - Fixed unexpected behavior with DamageTypePure when it is affected by Anti-Magic Shell or Mana Shield. DamageTypePure now no longer ignores DamageScalingWC3.
+5.3.0.0 - Fixed an issue with AfterDamageEvent sometimes being delayed. Added DamageScalingUser to track the ratio of user modified damage, as well as DamageEventArmorPierced which allows the user to define how much armor to ignore when working with DAMAGE_TYPE_NORMAL.
+5.2.0.1 - Fixed an issue where with the final unit in a Spirit Link chain or the retaliating damage of Thorns/Carapace would not deploy an AfterDamageEvent. Also fixed an issue where AfterDamageEvent would still fire from DAMAGE_TYPE_UNKNOWN if it was greater than 0. Simply copy over the JASS from this post in order to update your own implementation.
+5.2.0.0
+Now features DamageEventArmorT and DamageEventDefenseT, which pull from the target unit's Object Editor data in order to allow you more complete access to detect and even MODIFY those defenses. Changes must be made in a DamageModifierEvent, and they are reverted as soon as armor is calculated.
+Re-introduced AfterDamageEvent, which is the moment after the unit's life is changed, but before any recursive damage has run.
+
+5.1.3.1 - Bug fixes and performance improvements. No, really. Fixed an issue with the DAMAGED event running even though it was turned off (who would've guessed that?)
+5.1.3.0 - Engine re-tooling to improve accuracy and get Spirit Link/Defensive damage out of hardcoded mode - it will now work even in circumstances I haven't tested for (in case those weren't the only issues). Also fixed the Is Unit Moving resource.
+5.1.2.1 - Fixed an issue with Spiked Carapace and Thorns Aura where the melee attacker would not get recorded correctly. This required the same fix as I needed to apply for the initial target in a spirit link chain.
+5.1.2.0 - Tweaked recursion and fixed a few bugs. Re-introduced the zero damage event now that patch 1.31.1 brought it back.
+5.1.1.1 - Minor tweak to Spirit Link in rare situation.
+5.1.1.0 - Fixed issues related to Spirit Link. Now works intuitively as expected.
+5.1.0.0 - Crazy improvements - check out the details in "How to upgrade from Damage Engine 4.0 or earlier" and "How to use Damage Engine 5.1"
+5.0.0.0 - Oh man. Where do I even start?
+You can now set/compare DamageEventDamageT, DamageEventAttackT or DamageEventWeaponT
+No longer needs Unit Indexer nor any custom Object Editor data nor modifications.
+Requires WarCraft 3 1.31 or higher.
+Changed vanilla JASS code to vJass to clean up a lot of things such as making certain variables private.
+Look for more details in "How to upgrade from Damage Engine 4.0 or earlier"
+
+4.0.0.0 - Never officially released, but was the first iteration which used SetEventDamage.
+For 3.8.0.0 and prior, see: https://www.hiveworkshop.com/pastebin/894d2c076c67b006c00e4abe5fa27d0a18789/
