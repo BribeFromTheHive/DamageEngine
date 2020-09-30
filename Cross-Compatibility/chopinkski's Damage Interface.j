@@ -94,7 +94,23 @@ endstruct
         set dt.configured = true
     endfunction
  
-    function RegisterDamageEvent takes code c returns nothing
+    private function CustomConfig takes attacktype attack, damagetype damage returns nothing
+        local integer a = GetHandleId(attack)
+        local integer d = GetHandleId(damage)
+        local DamageTrigger dt = DamageTrigger.lastRegistered
+        if a > 0 or d > 0 then
+            set dt.configured = true
+            set dt.attackType = a
+            set dt.damageType = d
+        endif
+    endfunction
+ 
+    function RegisterDamageEvent takes attacktype attack, damagetype damage, code c returns nothing
+        call RegisterDamageEngine(c, "Mod", 4.00)
+        call CustomConfig(attack, damage)
+    endfunction
+    
+    function RegisterAnyDamageEvent takes code c returns nothing
         call RegisterDamageEngine(c, "Mod", 4.00)
     endfunction
  
@@ -120,7 +136,12 @@ endstruct
         set dt.configured = true
     endfunction
  
-    function RegisterDamagingEvent takes code c returns nothing
+    function RegisterDamagingEvent takes attacktype attack, damagetype damage, code c returns nothing
+        call RegisterDamageEngine(c, "Mod", 1.00)
+        call CustomConfig(attack, damage)
+    endfunction
+    
+    function RegisterAnyDamagingEvent takes code c returns nothing
         call RegisterDamageEngine(c, "Mod", 1.00)
     endfunction
 endlibrary
