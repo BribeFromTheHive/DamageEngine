@@ -611,7 +611,7 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
     endmethod
    
 static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-    private static method setArmor takes boolean reset returns nothing
+    private method setArmor takes boolean reset returns nothing
         local real pierce
         local integer at
         local integer dt
@@ -620,6 +620,7 @@ static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \
             set at     =  Damage.index.prevArmorT
             set dt     =  Damage.index.prevDefenseT
             set udg_DamageEventArmorPierced = 0.00
+            set this.armorPierced           = 0.00
         else
             set pierce = -udg_DamageEventArmorPierced
             set at     =  udg_DamageEventArmorT
@@ -687,7 +688,7 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                 call BlzSetEventDamage(udg_DamageEventAmount)
             endif
 static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-            call setArmor(false)
+            call this.setArmor(false)
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
             return false
         endif
@@ -744,7 +745,7 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                                     call SetWidgetLife(prepped.targetUnit, GetWidgetLife(prepped.targetUnit) - prepped.damage)
                                 endif
 static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-                                call setArmor(true)
+                                call prepped.setArmor(true)
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                             endif
                             call afterDamage()
@@ -760,7 +761,7 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
     endmethod
     private static method failsafeClear takes nothing returns nothing
 static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-        call setArmor(true)
+        call Damage.index.setArmor(true)
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
         set canKick         = true
         set kicking         = false
@@ -1000,7 +1001,7 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
             call DamageTrigger.setGUIFromStruct(true)
         endif
 static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-        call setArmor(true)
+        call d.setArmor(true)
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
        
 static if USE_SCALING then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
