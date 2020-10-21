@@ -1,7 +1,7 @@
 
 //===========================================================================
 //
-//  Damage Engine 5.7.1.1 - update requires replacing the JASS script.
+//  Damage Engine 5.7.1.2 - update requires replacing the JASS script.
 //
 /*
     Three GUI Damage systems for the community of The Hive,
@@ -619,6 +619,7 @@ static if USE_ARMOR_MOD then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \
             set pierce =  udg_DamageEventArmorPierced
             set at     =  Damage.index.prevArmorT
             set dt     =  Damage.index.prevDefenseT
+            set udg_DamageEventArmorPierced = 0.00
         else
             set pierce = -udg_DamageEventArmorPierced
             set at     =  udg_DamageEventArmorT
