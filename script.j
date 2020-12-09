@@ -1,7 +1,12 @@
-
 //===========================================================================
 //
-//  Damage Engine 5.7.1.2 - update requires replacing the JASS script.
+//  Damage Engine 5.8.0.0 - update requires replacing the JASS script and adding
+//  five new GUI variables:
+//  boolean udg_RemoveDamageEvent       
+//  integer udg_DamageFilterSourceI
+//  integer udg_DamageFilterTargetI
+//  integer udg_DamageFilterSourceC
+//  integer udg_DamageFilterTargetC   
 //
 /*
     Three GUI Damage systems for the community of The Hive,
@@ -14,6 +19,7 @@
 */
 //! novjass
 JASS API (work in progress - I have a lot of documentation to go through):
+
     struct Damage extends array
         readonly static unit  source        //stores udg_DamageEventSource
         readonly static unit  target        //stores udg_DamageEventTarget
@@ -47,6 +53,7 @@ JASS API (work in progress - I have a lot of documentation to go through):
         - A simplified version of the above function that autofills in the booleans, attack type and weapon type.
         static method applyAttack takes unit src, unit tgt, real amt, boolean ranged, attacktype at, weapontype wt returns Damage
         - A different variation of the above which autofills the "attack" boolean and sets the damagetype to DAMAGE_TYPE_NORMAL.
+        
     struct DamageTrigger extends array
         method operator filter= takes integer filter returns nothing
         // Apply primary filters such as DamageEngine_FILTER_MELEE/RANGED/SPELL which are based off of limitop handles to enable easier access for GUI folks
@@ -78,18 +85,24 @@ JASS API (work in progress - I have a lot of documentation to go through):
         //The string in the aruments below requires the following API:
         //  "" for standard damage event
         //  "Modifier(or Mod if you prefer)/After/Lethal/AOE" for the others
-        static method getIndex takes trigger t, string eventName, real value returns integer
-        static method registerTrigger takes trigger whichTrig, string var, real weight returns nothing
+        static method registerTrigger takes trigger whichTrig, string var, real value returns nothing
         static method unregister takes trigger t, string eventName, real value, boolean reset returns boolean
- 
-        static method operator [] takes code c returns trigger
+        
+        static method getIndex takes trigger t, string eventName, real value returns integer
+        
+        //If you already have the index of the trigger you want to unregister.
+        method unregisterByIndex takes boolean reset returns boolean
+        
         // Converts a code argument to a trigger, while checking if the same code had already been registered before.
+        static method operator [] takes code c returns trigger
+        
     //The accepted strings here use the same criteria as DamageTrigger.getIndex/registerTrigger/unregister
     function TriggerRegisterDamageEngineEx takes trigger whichTrig, string eventName, real value, integer f returns nothing
     function TriggerRegisterDamageEngine takes trigger whichTrig, string eventName, real value returns nothing
     function RegisterDamageEngineEx takes code c, string eventName, real value, integer f returns nothing
     function RegisterDamageEngine takes code c, string eventName, real value returns nothing
 //! endnovjass
+
 //===========================================================================
 library DamageEngine
 globals
@@ -141,7 +154,9 @@ globals
    
     private boolean         hasLethal       = false
 endglobals
+
 native UnitAlive takes unit u returns boolean
+
 //GUI Vars:
 /*
     Retained from 3.8 and prior:
@@ -162,6 +177,7 @@ native UnitAlive takes unit u returns boolean
     boolean         udg_NextDamageType
     boolean         udg_DamageEventType
     boolean         udg_IsDamageSpell
+    
     //Added in 5.0:
     boolean          udg_IsDamageMelee
     boolean          udg_IsDamageRanged
@@ -172,25 +188,32 @@ native UnitAlive takes unit u returns boolean
     integer          udg_DamageEventAttackT
     integer          udg_DamageEventDamageT
     integer          udg_DamageEventWeaponT
+    
     //Added in 5.1:
     boolean          udg_IsDamageCode
+    
     //Added in 5.2:
     integer          udg_DamageEventArmorT
     integer          udg_DamageEventDefenseT
+    
     //Addded in 5.3:
     real             DamageEventArmorPierced
     real             udg_DamageScalingUser
+    
     //Added in 5.4.2 to allow GUI users to re-issue the exact same attack and damage type at the attacker.
     attacktype array udg_CONVERTED_ATTACK_TYPE
     damagetype array udg_CONVERTED_DAMAGE_TYPE
+    
     //Added after Reforged introduced the new native BlzGetDamageIsAttack
     boolean         udg_IsDamageAttack
+    
     //Added in 5.6 to give GUI users control over the "IsDamageAttack", "IsDamageRanged" and "DamageEventWeaponT" field
     boolean         udg_NextDamageIsAttack  //The first boolean value in the UnitDamageTarget native
     boolean         udg_NextDamageIsMelee   //Flag the damage classification as melee
     boolean         udg_NextDamageIsRanged  //The second boolean value in the UnitDamageTarget native
     integer         udg_NextDamageWeaponT   //Allows control over damage sound effect
-    //Added in 5.7 to enable efficient, built-in filtering (see the below "checkConfiguration" method - I recommend commenting-out anything you don't need in your map)
+    
+    //Added in 5.7 to enable efficient, built-in filtering (see the below "checkConfig" method - I recommend commenting-out anything you don't need in your map)
     integer udg_DamageFilterAttackT
     integer udg_DamageFilterDamageT     //filter for a specific attack/damage type
     unit    udg_DamageFilterSource
@@ -201,27 +224,57 @@ native UnitAlive takes unit u returns boolean
     integer udg_DamageFilterSourceB
     integer udg_DamageFilterTargetB     //if source/target has a buff
     real    udg_DamageFilterMinAmount   //only allow a minimum damage threshold
+    
+    //Added in 5.8:
+    boolean udg_RemoveDamageEvent       //Allow GUI users to more fully unregister a damage event trigger. Can only be used from within a damage event (of any kind).
+    integer udg_DamageFilterSourceA
+    integer udg_DamageFilterTargetA     //Check if a source or target have a specific ability (will overwrite any source or target buff check, I need to use this because GUI differentiates ability ID and buff ID)
+    integer udg_DamageFilterSourceI
+    integer udg_DamageFilterTargetI     //Check if a source or target have a specific type of item
+    integer udg_DamageFilterSourceC
+    integer udg_DamageFilterTargetC     //Classification of source/target (e.g. hero, treant, ward)
 */
 struct DamageTrigger extends array
    
-    //Map-makers should comment-out any booleans they will never need to check for.
-    method checkConfiguration takes nothing returns boolean
-        if this.userType != 0 and udg_DamageEventType != this.userType then
-        elseif this.source != null and this.source != udg_DamageEventSource then
-        elseif this.target != null and this.target != udg_DamageEventTarget then
-        elseif this.attackType >= 0 and this.attackType != udg_DamageEventAttackT then
-        elseif this.damageType >= 0 and this.damageType != udg_DamageEventDamageT then
-        elseif this.sourceType != 0 and GetUnitTypeId(udg_DamageEventSource) != this.sourceType then
-        elseif this.targetType != 0 and GetUnitTypeId(udg_DamageEventTarget) != this.targetType then
-        elseif this.sourceBuff != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceBuff) == 0 then
-        elseif this.targetBuff != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetBuff) == 0 then
+    static method checkItem takes unit u, integer id returns boolean
+        local integer i
+        if IsUnitType(u, UNIT_TYPE_HERO) then
+            set i = UnitInventorySize(u)
+            loop
+                exitwhen i <= 0
+                set i = i - 1
+                if GetItemTypeId(UnitItemInSlot(u, i)) == id then
+                    return true
+                endif
+            endloop
+        endif
+        return false
+    endmethod
+    
+    //Map-makers should comment-out any lines they will never need to check for and move to the top any lines
+    //that are checked more frequently in their map.
+    method checkConfig takes nothing returns boolean
+        if this.sourceType      != 0 and GetUnitTypeId(udg_DamageEventSource) != this.sourceType then
+        elseif this.targetType  != 0 and GetUnitTypeId(udg_DamageEventTarget) != this.targetType then
+        elseif this.sourceBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceBuff) == 0 then
+        elseif this.targetBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetBuff) == 0 then
+        elseif this.failChance  > 0.00 and GetRandomReal(0.00, 1.00) <= this.failChance then
+        elseif this.userType    != 0 and udg_DamageEventType != this.userType then
+        elseif this.source      != null and this.source != udg_DamageEventSource then
+        elseif this.target      != null and this.target != udg_DamageEventTarget then
+        elseif this.attackType  >= 0 and this.attackType != udg_DamageEventAttackT then
+        elseif this.damageType  >= 0 and this.damageType != udg_DamageEventDamageT then
+        elseif this.sourceItem  != 0 and .checkItem(udg_DamageEventSource, this.sourceItem) then
+        elseif this.targetItem  != 0 and .checkItem(udg_DamageEventTarget, this.targetItem) then
+        elseif this.sourceClass >= 0 and IsUnitType(udg_DamageEventSource, ConvertUnitType(this.sourceClass)) then
+        elseif this.targetClass >= 0 and IsUnitType(udg_DamageEventTarget, ConvertUnitType(this.targetClass)) then
         elseif udg_DamageEventAmount > this.damageMin then
             return true
         endif
         return false
     endmethod
    
-    //The below variables are constant
+    //The below variables are to be treated as constant
     readonly static thistype        MOD             = 1
     readonly static thistype        SHIELD          = 4
     readonly static thistype        DAMAGE          = 5
@@ -236,21 +289,29 @@ struct DamageTrigger extends array
     static boolean array            filters
     readonly string                 eventStr
     readonly real                   weight
-    boolean                         configured
     boolean                         usingGUI
-    //The below variables are private
+    
+    //The below variables are to be treated as private
     private thistype                next
     private trigger                 rootTrig
     boolean                         trigFrozen      //Whether the trigger is currently disabled due to recursion
     integer                         levelsDeep      //How deep the user recursion currently is.
     boolean                         inceptionTrig   //Added in 5.4.2 to simplify the inception variable for very complex DamageEvent trigger.
+    
+    //configuration variables:
+    boolean                         configured
     unit    source
     unit    target
     integer sourceType
     integer targetType
     integer sourceBuff
     integer targetBuff
+    integer sourceItem
+    integer targetItem
+    integer sourceClass
+    integer targetClass
     real    damageMin
+    real    failChance
     integer attackType
     integer damageType
     integer userType
@@ -261,21 +322,42 @@ struct DamageTrigger extends array
         set this.target             = udg_DamageFilterTarget
         set this.sourceType         = udg_DamageFilterSourceT
         set this.targetType         = udg_DamageFilterTargetT
-        set this.sourceBuff         = udg_DamageFilterSourceB
-        set this.targetBuff         = udg_DamageFilterTargetB
+        set this.sourceItem         = udg_DamageFilterSourceI
+        set this.targetItem         = udg_DamageFilterTargetI
+        set this.sourceClass        = udg_DamageFilterSourceC
+        set this.targetClass        = udg_DamageFilterTargetC
         set this.userType           = udg_DamageFilterType
         set this.damageMin          = udg_DamageFilterMinAmount
- 
-        set udg_DamageFilterAttackT =-1
-        set udg_DamageFilterDamageT =-1
-        set udg_DamageFilterSource  = null
-        set udg_DamageFilterTarget  = null
-        set udg_DamageFilterSourceT = 0
-        set udg_DamageFilterTargetT = 0
-        set udg_DamageFilterType    = 0
-        set udg_DamageFilterSourceB = 0
-        set udg_DamageFilterTargetB = 0
-        set udg_DamageFilterMinAmount=0.00
+        set this.failChance         = udg_DamageFilterFailChance
+        
+        if udg_DamageFilterSourceA > 0 then
+            set this.sourceBuff         = udg_DamageFilterSourceA
+            set udg_DamageFilterSourceA = 0
+        else
+            set this.sourceBuff         = udg_DamageFilterSourceB
+        endif
+        if udg_DamageFilterTargetA > 0 then
+            set this.targetBuff         = udg_DamageFilterTargetA
+            set udg_DamageFilterTargetA = 0
+        else
+            set this.targetBuff         = udg_DamageFilterTargetB
+        endif
+        
+        set udg_DamageFilterAttackT     = -1
+        set udg_DamageFilterDamageT     = -1
+        set udg_DamageFilterSource      = null
+        set udg_DamageFilterTarget      = null
+        set udg_DamageFilterSourceT     = 0
+        set udg_DamageFilterTargetT     = 0
+        set udg_DamageFilterType        = 0
+        set udg_DamageFilterSourceB     = 0
+        set udg_DamageFilterTargetB     = 0
+        set udg_DamageFilterSourceC     = -1
+        set udg_DamageFilterTargetC     = -1
+        set udg_DamageFilterSourceI     = 0
+        set udg_DamageFilterTargetI     = 0
+        set udg_DamageFilterMinAmount   = 0.00
+        set udg_DamageFilterFailChance  = 0.00
  
         set this.configured         = true
     endmethod
@@ -433,23 +515,24 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
         endloop
         return index
     endmethod
-    static method unregister takes trigger t, string eventName, real lbs, boolean reset returns boolean
-        local thistype index        = getIndex(t, eventName, lbs)
-        if index == 0 then
+    method unregisterByIndex takes boolean reset returns boolean
+        if this == 0 then
             return false
         endif
-        set prev.next               = index.next
+        set prev.next               = this.next
      
-        set trigIndexStack[index]   = trigIndexStack[0]
-        set trigIndexStack[0]       = index
+        set trigIndexStack[this]    = trigIndexStack[0]
+        set trigIndexStack[0]       = this
  
         if reset then
-            call index.configure()
-            set index.configured    = false
-            set index               = index*FILTER_MAX
-            call index.toggleAllFilters(false)
+            call this.configure()
+            set this.configured     = false
+            call thistype(this*FILTER_MAX).toggleAllFilters(false)
         endif
         return true
+    endmethod
+    static method unregister takes trigger t, string eventName, real lbs, boolean reset returns boolean
+        return getIndex(t, eventName, lbs).unregisterByIndex(reset)
     endmethod
     method run takes nothing returns nothing
         local integer cat = this
@@ -477,7 +560,7 @@ static if USE_LETHAL then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / 
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
          
             set eventIndex = this
-            if not this.trigFrozen and filters[this*FILTER_MAX + d.eFilter] and IsTriggerEnabled(this.rootTrig) and (not this.configured or this.checkConfiguration()) then
+            if not this.trigFrozen and filters[this*FILTER_MAX + d.eFilter] and IsTriggerEnabled(this.rootTrig) and (not this.configured or this.checkConfig()) then
 static if USE_GUI then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                 if mod then
                     if this.usingGUI then
@@ -513,15 +596,19 @@ static if USE_GUI then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                     if this.usingGUI then
                         //! runtextmacro optional DAMAGE_EVENT_MOD_PLUGIN_PDD()
                         if cat != MOD then
-                            set d.damage        = udg_DamageEventAmount
+                            set d.damage            = udg_DamageEventAmount
                         else
-                            set structUnset = true
+                            set structUnset         = true
                         endif
                     elseif cat != MOD then
-                        set udg_DamageEventAmount = d.damage
+                        set udg_DamageEventAmount   = d.damage
                     else
-                        set guiUnset = true
+                        set guiUnset                = true
                     endif
+                endif
+                if udg_RemoveDamageEvent then
+                    set udg_RemoveDamageEvent = false
+                    call this.unregisterByIndex(true)
                 endif
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
             endif
@@ -1262,7 +1349,7 @@ endstruct
     //! endtextmacro
     //! textmacro DAMAGE_TRIGGER_CONFIG_END
             call DamageTrigger.eventIndex.configure()
-            if not DamageTrigger.eventIndex.checkConfiguration() then
+            if not DamageTrigger.eventIndex.checkConfig() then
                 return
             endif
         endif
