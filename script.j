@@ -1349,9 +1349,9 @@ endstruct
     //! endtextmacro
     //! textmacro DAMAGE_TRIGGER_CONFIG_END
             call DamageTrigger.eventIndex.configure()
-            if not DamageTrigger.eventIndex.checkConfig() then
-                return
-            endif
+        endif
+        if not DamageTrigger.eventIndex.checkConfig() then
+            return
         endif
     //! endtextmacro
 endlibrary
