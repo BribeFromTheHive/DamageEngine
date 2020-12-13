@@ -3,10 +3,13 @@
 //  Damage Engine 5.8.0.0 - update requires replacing the JASS script and adding
 //  five new GUI variables:
 //  boolean udg_RemoveDamageEvent       
-//  integer udg_DamageFilterSourceI
-//  integer udg_DamageFilterTargetI
+//  real udg_DamageFilterFailChance
+//  integer udg_DamageFilterSourceI (item type in variable editor)
+//  integer udg_DamageFilterTargetI (item type in variable editor)
+//  integer udg_DamageFilterSourceA (ability code in variable editor)
+//  integer udg_DamageFilterTargetA (ability code in variable editor)     
 //  integer udg_DamageFilterSourceC
-//  integer udg_DamageFilterTargetC   
+//  integer udg_DamageFilterTargetC  
 //
 /*
     Three GUI Damage systems for the community of The Hive,
