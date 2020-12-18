@@ -260,7 +260,9 @@ struct DamageTrigger extends array
     method checkConfig takes nothing returns boolean
         if this.sourceType      != 0 and GetUnitTypeId(udg_DamageEventSource) != this.sourceType then
         elseif this.targetType  != 0 and GetUnitTypeId(udg_DamageEventTarget) != this.targetType then
-        elseif this.sourceBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceBuff) == 0 then
+        elseif this.sourceAbil  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceAbil) == 0 then
+        elseif this.targetBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetBuff) == 0 then
+        elseif this.sourceAbil  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceAbil) == 0 then
         elseif this.targetBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetBuff) == 0 then
         elseif this.failChance  > 0.00 and GetRandomReal(0.00, 1.00) <= this.failChance then
         elseif this.userType    != 0 and udg_DamageEventType != this.userType then
@@ -308,6 +310,8 @@ struct DamageTrigger extends array
     unit    target
     integer sourceType
     integer targetType
+    integer sourceAbil
+    integer targetAbil
     integer sourceBuff
     integer targetBuff
     integer sourceItem
@@ -334,17 +338,15 @@ struct DamageTrigger extends array
         set this.damageMin          = udg_DamageFilterMinAmount
         set this.failChance         = udg_DamageFilterFailChance
         
+        set this.sourceAbil         = udg_DamageFilterSourceA
+        set this.sourceBuff         = udg_DamageFilterSourceB
+        set this.targetAbil         = udg_DamageFilterTargetA
+        set this.targetBuff         = udg_DamageFilterTargetB
         if udg_DamageFilterSourceA > 0 then
-            set this.sourceBuff         = udg_DamageFilterSourceA
-            set udg_DamageFilterSourceA = 0
         else
-            set this.sourceBuff         = udg_DamageFilterSourceB
         endif
         if udg_DamageFilterTargetA > 0 then
-            set this.targetBuff         = udg_DamageFilterTargetA
-            set udg_DamageFilterTargetA = 0
         else
-            set this.targetBuff         = udg_DamageFilterTargetB
         endif
         
         set udg_DamageFilterAttackT     = -1
@@ -354,6 +356,8 @@ struct DamageTrigger extends array
         set udg_DamageFilterSourceT     = 0
         set udg_DamageFilterTargetT     = 0
         set udg_DamageFilterType        = 0
+        set udg_DamageFilterSourceA     = 0
+        set udg_DamageFilterTargetA     = 0
         set udg_DamageFilterSourceB     = 0
         set udg_DamageFilterTargetB     = 0
         set udg_DamageFilterSourceC     = -1
