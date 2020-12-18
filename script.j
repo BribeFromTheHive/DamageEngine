@@ -1,7 +1,8 @@
 //===========================================================================
 //
 //  Damage Engine 5.8.0.0 - update requires replacing the JASS script and adding
-//  five new GUI variables:
+//  the below new GUI variables:
+//  
 //  boolean udg_RemoveDamageEvent       
 //  real udg_DamageFilterFailChance
 //  integer udg_DamageFilterSourceI (item type in variable editor)
@@ -267,11 +268,11 @@ struct DamageTrigger extends array
         elseif this.target      != null and this.target != udg_DamageEventTarget then
         elseif this.attackType  >= 0 and this.attackType != udg_DamageEventAttackT then
         elseif this.damageType  >= 0 and this.damageType != udg_DamageEventDamageT then
-        elseif this.sourceItem  != 0 and .checkItem(udg_DamageEventSource, this.sourceItem) then
-        elseif this.targetItem  != 0 and .checkItem(udg_DamageEventTarget, this.targetItem) then
-        elseif this.sourceClass >= 0 and IsUnitType(udg_DamageEventSource, ConvertUnitType(this.sourceClass)) then
-        elseif this.targetClass >= 0 and IsUnitType(udg_DamageEventTarget, ConvertUnitType(this.targetClass)) then
-        elseif udg_DamageEventAmount > this.damageMin then
+        elseif this.sourceItem  != 0 and not .checkItem(udg_DamageEventSource, this.sourceItem) then
+        elseif this.targetItem  != 0 and not .checkItem(udg_DamageEventTarget, this.targetItem) then
+        elseif this.sourceClass >= 0 and not IsUnitType(udg_DamageEventSource, ConvertUnitType(this.sourceClass)) then
+        elseif this.targetClass >= 0 and not IsUnitType(udg_DamageEventTarget, ConvertUnitType(this.targetClass)) then
+        elseif udg_DamageEventAmount >= this.damageMin then
             return true
         endif
         return false
@@ -288,7 +289,7 @@ struct DamageTrigger extends array
     private static integer          count           = 9
     static thistype                 lastRegistered  = 0
     private static thistype array   trigIndexStack
-    static thistype                 eventIndex = 0
+    static thistype                 eventIndex      = 0
     static boolean array            filters
     readonly string                 eventStr
     readonly real                   weight
@@ -563,7 +564,7 @@ static if USE_LETHAL then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / 
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
          
             set eventIndex = this
-            if not this.trigFrozen and filters[this*FILTER_MAX + d.eFilter] and IsTriggerEnabled(this.rootTrig) and (not this.configured or this.checkConfig()) then
+            if (not this.trigFrozen) and filters[this*FILTER_MAX + d.eFilter] and IsTriggerEnabled(this.rootTrig) and ((not this.configured) or (this.checkConfig())) then
 static if USE_GUI then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                 if mod then
                     if this.usingGUI then
