@@ -261,8 +261,8 @@ struct DamageTrigger extends array
         if this.sourceType      != 0 and GetUnitTypeId(udg_DamageEventSource) != this.sourceType then
         elseif this.targetType  != 0 and GetUnitTypeId(udg_DamageEventTarget) != this.targetType then
         elseif this.sourceAbil  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceAbil) == 0 then
-        elseif this.targetBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetBuff) == 0 then
-        elseif this.sourceAbil  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceAbil) == 0 then
+        elseif this.targetAbil  != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetAbil) == 0 then
+        elseif this.sourceBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceBuff) == 0 then
         elseif this.targetBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventTarget, this.targetBuff) == 0 then
         elseif this.failChance  > 0.00 and GetRandomReal(0.00, 1.00) <= this.failChance then
         elseif this.userType    != 0 and udg_DamageEventType != this.userType then
