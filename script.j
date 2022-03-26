@@ -10,7 +10,7 @@
 //  integer udg_DamageFilterSourceA (ability code in variable editor)
 //  integer udg_DamageFilterTargetA (ability code in variable editor)     
 //  integer udg_DamageFilterSourceC 
-//  integer udg_DamageFilterTargetC  
+//  integer udg_DamageFilterTargetC  (integer in variable editor)
 //
 /*
     Three GUI Damage systems for the community of The Hive,
@@ -492,7 +492,7 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
         set id.eventStr            = var
         
         //Added in 5.8 to allow a final damage event whether AOE runs or not.
-        set id.isNotAOE = index == AOE and lbs == 0.00
+        set id.isNotAOE = index == AOE and filt == FILTER_CODE
         
         //Next 2 lines added to fix a bug when using manual vJass configuration,
         //discovered and solved by lolreported
