@@ -1,16 +1,6 @@
 //===========================================================================
 //
-//  Damage Engine 5.8.0.0 - update requires replacing the JASS script and adding
-//  the below new GUI variables:
-//  
-//  boolean udg_RemoveDamageEvent       
-//  real udg_DamageFilterFailChance
-//  integer udg_DamageFilterSourceI (item type in variable editor)
-//  integer udg_DamageFilterTargetI (item type in variable editor)
-//  integer udg_DamageFilterSourceA (ability code in variable editor)
-//  integer udg_DamageFilterTargetA (ability code in variable editor)     
-//  integer udg_DamageFilterSourceC 
-//  integer udg_DamageFilterTargetC  (integer in variable editor)
+//  Damage Engine 5.9.0.0 - update requires re-copying the Damage Engine category.
 //
 /*
     Three GUI Damage systems for the community of The Hive,
@@ -45,7 +35,7 @@ JASS API (work in progress - I have a lot of documentation to go through):
         real                  armorPierced  //stores udg_DamageEventArmorPierced by index
         integer               armorType     //stores udg_DamageEventArmorT by index
         integer               defenseType   //stores udg_DamageEventDefenseT by index
-     
+        
         static boolean operator enabled
         - Set to false to disable the damage event triggers/false to reverse that
      
@@ -237,6 +227,13 @@ native UnitAlive takes unit u returns boolean
     integer udg_DamageFilterTargetI     //Check if a source or target have a specific type of item
     integer udg_DamageFilterSourceC
     integer udg_DamageFilterTargetC     //Classification of source/target (e.g. hero, treant, ward)
+    
+    //Added in 5.9
+    real udg_SourceDamageEvent          //Like AOEDamageEvent, fires each time the source unit has finished dealing damage, but doesn't care if the damage hit multiple units.
+    real udg_PreDamageEvent             //Like DamageModifierEvent 3.99 or less, except can be any real value.
+    real udg_ArmorDamageEvent           //Like DamageModifierEvent 4.00 or more, except can be any real value.
+    real udg_OnDamageEvent              //Like DamageEvent equal to 1.00 or some non-zero/non-2 value, except can be any real value.
+    real udg_ZeroDamageEvent            //Like DamageEvent equal to 0.00 or 2.00, except can be any real value.
 */
 struct DamageTrigger extends array
    
@@ -258,6 +255,7 @@ struct DamageTrigger extends array
     //Map-makers should comment-out any lines they will never need to check for and move to the top any lines
     //that are checked more frequently in their map.
     method checkConfig takes nothing returns boolean
+        //call BJDebugMsg("Checking configuration")
         if this.sourceType      != 0 and GetUnitTypeId(udg_DamageEventSource) != this.sourceType then
         elseif this.targetType  != 0 and GetUnitTypeId(udg_DamageEventTarget) != this.targetType then
         elseif this.sourceBuff  != 0 and GetUnitAbilityLevel(udg_DamageEventSource, this.sourceBuff) == 0 then
@@ -273,8 +271,10 @@ struct DamageTrigger extends array
         elseif this.sourceClass >= 0 and not IsUnitType(udg_DamageEventSource, ConvertUnitType(this.sourceClass)) then
         elseif this.targetClass >= 0 and not IsUnitType(udg_DamageEventTarget, ConvertUnitType(this.targetClass)) then
         elseif udg_DamageEventAmount >= this.damageMin then
+            //call BJDebugMsg("Configuration passed")
             return true
         endif
+        //call BJDebugMsg("Checking failed")
         return false
     endmethod
    
@@ -293,7 +293,6 @@ struct DamageTrigger extends array
     static boolean array            filters
     readonly string                 eventStr
     readonly real                   weight
-    readonly boolean                isNotAOE
     boolean                         usingGUI
     
     //The below variables are to be treated as private
@@ -320,6 +319,13 @@ struct DamageTrigger extends array
     integer attackType
     integer damageType
     integer userType
+    method operator runChance takes nothing returns real
+        return 1.00 - this.failChance
+    endmethod
+    method operator runChance= takes real r returns nothing
+        set this.failChance = 1.00 - r
+    endmethod
+    
     method configure takes nothing returns nothing
         set this.attackType         = udg_DamageFilterAttackT
         set this.damageType         = udg_DamageFilterDamageT
@@ -333,7 +339,7 @@ struct DamageTrigger extends array
         set this.targetClass        = udg_DamageFilterTargetC
         set this.userType           = udg_DamageFilterType
         set this.damageMin          = udg_DamageFilterMinAmount
-        set this.failChance         = udg_DamageFilterFailChance
+        set this.failChance         = 1.00 - (udg_DamageFilterRunChance - udg_DamageFilterFailChance)
         
         if udg_DamageFilterSourceA > 0 then
             set this.sourceBuff         = udg_DamageFilterSourceA
@@ -363,6 +369,7 @@ struct DamageTrigger extends array
         set udg_DamageFilterTargetI     = 0
         set udg_DamageFilterMinAmount   = 0.00
         set udg_DamageFilterFailChance  = 0.00
+        set udg_DamageFilterRunChance   = 1.00
  
         set this.configured         = true
     endmethod
@@ -410,23 +417,19 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
     endmethod
     private static method getStrIndex takes string var, real lbs returns thistype
         local integer root = R2I(lbs)
-        if var == "udg_DamageModifierEvent" then
-            if root >= 4 then
-                set root= SHIELD //4.00 or higher
-            else  
-                set root= MOD    //Less than 4.00
-            endif
-        elseif var == "udg_DamageEvent" then
-            if root == 2 or root == 0 then
-                set root= ZERO
-            else
-                set root= DAMAGE //Above 0.00 but less than 2.00, generally would just be 1.00
-            endif
+        if (var == "udg_DamageModifierEvent" and root < 4) or var == "udg_PreDamageEvent" then
+            set root    = MOD
+        elseif var == "udg_DamageModifierEvent" or var == "udg_ArmorDamageEvent" then
+            set root    = SHIELD
+        elseif (var == "udg_DamageEvent" and root == 2 or root == 0) or var == "udg_ZeroDamageEvent" then
+            set root    = ZERO
+        elseif var == "udg_DamageEvent" or var == "udg_OnDamageEvent" then
+            set root    = DAMAGE            
         elseif var == "udg_AfterDamageEvent" then
             set root    = AFTER
         elseif var == "udg_LethalDamageEvent" then
             set root    = LETHAL
-        elseif var == "udg_AOEDamageEvent" then
+        elseif var == "udg_AOEDamageEvent" or var == "udg_SourceDamageEvent" then
             set root    = AOE
         else
             set root    = 0
@@ -490,9 +493,6 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
         set id.usingGUI            = GUI
         set id.weight              = lbs
         set id.eventStr            = var
-        
-        //Added in 5.8 to allow a final damage event whether AOE runs or not.
-        set id.isNotAOE = index == AOE and filt == FILTER_CODE
         
         //Next 2 lines added to fix a bug when using manual vJass configuration,
         //discovered and solved by lolreported
@@ -569,9 +569,9 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
 static if USE_LETHAL then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
             exitwhen cat == LETHAL and udg_LethalDamageHP > DEATH_VAL
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-         
+            
             set eventIndex = this
-            if (not this.trigFrozen) and filters[this*FILTER_MAX + d.eFilter] and IsTriggerEnabled(this.rootTrig) and ((not this.configured) or (this.checkConfig())) and (cat != AOE or udg_DamageEventAOE > 1 or this.isNotAOE) then
+            if (not this.trigFrozen) and filters[this*FILTER_MAX + d.eFilter] and IsTriggerEnabled(this.rootTrig) and ((not this.configured) or (this.checkConfig())) and (cat != AOE or udg_DamageEventAOE > 1 or this.eventStr == "udg_SourceDamageEvent") then
 static if USE_GUI then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
                 if mod then
                     if this.usingGUI then
@@ -739,14 +739,14 @@ endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
 static if USE_EXTRA then// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
     private static method onAOEEnd takes nothing returns nothing
         call DamageTrigger.AOE.run()
-        set udg_DamageEventAOE          = 0
-        set udg_DamageEventLevel        = 0
+        set udg_DamageEventAOE          = 1
+        set udg_DamageEventLevel        = 1
         set udg_EnhancedDamageTarget    = null
         set udg_AOEDamageSource         = null
         call GroupClear(udg_DamageEventAOEGroup)
     endmethod
 endif// \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ /
-   
+    
     private static method afterDamage takes nothing returns nothing
         if udg_DamageEventDamageT != 0 and not (udg_DamageEventPrevAmt == 0.00) then
             call DamageTrigger.AFTER.run()
@@ -1337,6 +1337,136 @@ endstruct
         set udg_ArmorTypeDebugStr[3]         = "WOOD"
         set udg_ArmorTypeDebugStr[4]         = "ETHEREAL"
         set udg_ArmorTypeDebugStr[5]         = "STONE"
+        // -
+        // Added 25 July 2017 to allow detection of things like Bash or Pulverize or AOE spread
+        // -
+        set udg_DamageEventAOE = 1
+        set udg_DamageEventLevel = 1
+        // -
+        // In-game World Editor doesn't allow Attack Type and Damage Type comparisons. Therefore I need to code them as integers into GUI
+        // -
+        set udg_ATTACK_TYPE_SPELLS = 0
+        set udg_ATTACK_TYPE_NORMAL = 1
+        set udg_ATTACK_TYPE_PIERCE = 2
+        set udg_ATTACK_TYPE_SIEGE = 3
+        set udg_ATTACK_TYPE_MAGIC = 4
+        set udg_ATTACK_TYPE_CHAOS = 5
+        set udg_ATTACK_TYPE_HERO = 6
+        // -
+        set udg_DAMAGE_TYPE_UNKNOWN = 0
+        set udg_DAMAGE_TYPE_NORMAL = 4
+        set udg_DAMAGE_TYPE_ENHANCED = 5
+        set udg_DAMAGE_TYPE_FIRE = 8
+        set udg_DAMAGE_TYPE_COLD = 9
+        set udg_DAMAGE_TYPE_LIGHTNING = 10
+        set udg_DAMAGE_TYPE_POISON = 11
+        set udg_DAMAGE_TYPE_DISEASE = 12
+        set udg_DAMAGE_TYPE_DIVINE = 13
+        set udg_DAMAGE_TYPE_MAGIC = 14
+        set udg_DAMAGE_TYPE_SONIC = 15
+        set udg_DAMAGE_TYPE_ACID = 16
+        set udg_DAMAGE_TYPE_FORCE = 17
+        set udg_DAMAGE_TYPE_DEATH = 18
+        set udg_DAMAGE_TYPE_MIND = 19
+        set udg_DAMAGE_TYPE_PLANT = 20
+        set udg_DAMAGE_TYPE_DEFENSIVE = 21
+        set udg_DAMAGE_TYPE_DEMOLITION = 22
+        set udg_DAMAGE_TYPE_SLOW_POISON = 23
+        set udg_DAMAGE_TYPE_SPIRIT_LINK = 24
+        set udg_DAMAGE_TYPE_SHADOW_STRIKE = 25
+        set udg_DAMAGE_TYPE_UNIVERSAL = 26
+        // -
+        // The below variables don't affect damage amount, but do affect the sound played
+        // They also give important information about the type of attack used.
+        // They can differentiate between ranged and melee for units who are both
+        // -
+        set udg_WEAPON_TYPE_NONE = 0
+        // Metal Light/Medium/Heavy
+        set udg_WEAPON_TYPE_ML_CHOP = 1
+        set udg_WEAPON_TYPE_MM_CHOP = 2
+        set udg_WEAPON_TYPE_MH_CHOP = 3
+        set udg_WEAPON_TYPE_ML_SLICE = 4
+        set udg_WEAPON_TYPE_MM_SLICE = 5
+        set udg_WEAPON_TYPE_MH_SLICE = 6
+        set udg_WEAPON_TYPE_MM_BASH = 7
+        set udg_WEAPON_TYPE_MH_BASH = 8
+        set udg_WEAPON_TYPE_MM_STAB = 9
+        set udg_WEAPON_TYPE_MH_STAB = 10
+        // Wood Light/Medium/Heavy
+        set udg_WEAPON_TYPE_WL_SLICE = 11
+        set udg_WEAPON_TYPE_WM_SLICE = 12
+        set udg_WEAPON_TYPE_WH_SLICE = 13
+        set udg_WEAPON_TYPE_WL_BASH = 14
+        set udg_WEAPON_TYPE_WM_BASH = 15
+        set udg_WEAPON_TYPE_WH_BASH = 16
+        set udg_WEAPON_TYPE_WL_STAB = 17
+        set udg_WEAPON_TYPE_WM_STAB = 18
+        // Claw Light/Medium/Heavy
+        set udg_WEAPON_TYPE_CL_SLICE = 19
+        set udg_WEAPON_TYPE_CM_SLICE = 20
+        set udg_WEAPON_TYPE_CH_SLICE = 21
+        // Axe Medium
+        set udg_WEAPON_TYPE_AM_CHOP = 22
+        // Rock Heavy
+        set udg_WEAPON_TYPE_RH_BASH = 23
+        // -
+        // Since GUI still doesn't provide Defense Type and Armor Types, I needed to include the below
+        // -
+        set udg_ARMOR_TYPE_NONE = 0
+        set udg_ARMOR_TYPE_FLESH = 1
+        set udg_ARMOR_TYPE_METAL = 2
+        set udg_ARMOR_TYPE_WOOD = 3
+        set udg_ARMOR_TYPE_ETHEREAL = 4
+        set udg_ARMOR_TYPE_STONE = 5
+        // -
+        set udg_DEFENSE_TYPE_LIGHT = 0
+        set udg_DEFENSE_TYPE_MEDIUM = 1
+        set udg_DEFENSE_TYPE_HEAVY = 2
+        set udg_DEFENSE_TYPE_FORTIFIED = 3
+        set udg_DEFENSE_TYPE_NORMAL = 4
+        set udg_DEFENSE_TYPE_HERO = 5
+        set udg_DEFENSE_TYPE_DIVINE = 6
+        set udg_DEFENSE_TYPE_UNARMORED = 7
+        // -
+        set udg_UNIT_CLASS_HERO = 0
+        set udg_UNIT_CLASS_DEAD = 1
+        set udg_UNIT_CLASS_STRUCTURE = 2
+        // -
+        set udg_UNIT_CLASS_FLYING = 3
+        set udg_UNIT_CLASS_GROUND = 4
+        // -
+        set udg_UNIT_CLASS_ATTACKS_FLYING = 5
+        set udg_UNIT_CLASS_ATTACKS_GROUND = 6
+        // -
+        set udg_UNIT_CLASS_MELEE = 7
+        set udg_UNIT_CLASS_RANGED = 8
+        // -
+        set udg_UNIT_CLASS_GIANT = 9
+        set udg_UNIT_CLASS_SUMMONED = 10
+        set udg_UNIT_CLASS_STUNNED = 11
+        set udg_UNIT_CLASS_PLAGUED = 12
+        set udg_UNIT_CLASS_SNARED = 13
+        // -
+        set udg_UNIT_CLASS_UNDEAD = 14
+        set udg_UNIT_CLASS_MECHANICAL = 15
+        set udg_UNIT_CLASS_PEON = 16
+        set udg_UNIT_CLASS_SAPPER = 17
+        set udg_UNIT_CLASS_TOWNHALL = 18
+        set udg_UNIT_CLASS_ANCIENT = 19
+        // -
+        set udg_UNIT_CLASS_TAUREN = 20
+        set udg_UNIT_CLASS_POISONED = 21
+        set udg_UNIT_CLASS_POLYMORPHED = 22
+        set udg_UNIT_CLASS_SLEEPING = 23
+        set udg_UNIT_CLASS_RESISTANT = 24
+        set udg_UNIT_CLASS_ETHEREAL = 25
+        set udg_UNIT_CLASS_MAGIC_IMMUNE = 26
+        // -
+        set udg_DamageFilterAttackT = -1
+        set udg_DamageFilterDamageT = -1
+        set udg_DamageFilterSourceC = -1
+        set udg_DamageFilterTargetC = -1
+        set udg_DamageFilterRunChance = 1.00
     endfunction
     //===========================================================================
     //
