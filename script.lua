@@ -5,7 +5,7 @@ and Timed then  -- https://www.hiveworkshop.com/threads/timed-call-and-echo.3392
     
     Lua Damage Engine Version 2.0.0.0
     
-    Documentation is found in the code, not in this header.
+    Documentation is found in the code, not in this header. Test
     
     I'd like to give very special thanks to Eikonium for equipping me with the debugging
     tools I needed to get Lua Damage Engine published. I'd also like to thank MindWorX and
