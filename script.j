@@ -623,9 +623,9 @@ struct DamageTrigger extends array
         set id.attackType = -1
         set id.damageType = -1
 
-		//they will probably bug out with class types as well, so I should add them, just in case:
-		set id.sourceClass = -1
-		set id.targetClass = -1
+        //they will probably bug out with class types as well, so I should add them, just in case:
+        set id.sourceClass = -1
+        set id.targetClass = -1
 
         loop
             set i = index.next
