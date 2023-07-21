@@ -1,9 +1,5 @@
 /*
-    vJass Damage Engine 5.A.0.0 
-    
-    This update requires the addition of a new 'DamageEventAttackTarget'. 
-    This new unit variable is associated with the 'unit is attacked' event,
-    and identifies it correctly during splash damage/multi-hit attacks.
+    vJass Damage Engine 5.8.0.1
 */
 /*
 JASS API:
