@@ -1,5 +1,9 @@
 /*
-    vJass Damage Engine 5.8.0.1
+    vJass Damage Engine 5.A.0.0 
+    
+    This update requires the addition of a new 'DamageEventAttackTarget'. 
+    This new unit variable is associated with the 'unit is attacked' event,
+    and identifies it correctly during splash damage/multi-hit attacks.
 */
 /*
 JASS API:
@@ -29,7 +33,7 @@ JASS API:
         readonly integer eFilter
 
     Set to false to disable the damage event triggers or to true to reverse that:
-        static boolean enabled
+        static boolean operator enabled
 
     Same arguments as "UnitDamageTarget" but has the benefit of being performance-friendly during recursive events.
     Will automatically cause the damage to be registered as Code damage.
@@ -197,11 +201,11 @@ globals
     private trigger damagedTrigger = null
     private trigger recursiveTrigger = null //Catches, stores recursive events
 
-    /*
-        These variables coincide with Blizzard's "limitop" type definitions
-        so as to enable GUI users with some performance perks - however,
-        these optimizations need to be tested
-    */
+/*
+    These variables coincide with Blizzard's "limitop" type definitions
+    so as to enable GUI users with some performance perks - however,
+    these optimizations need to be tested
+*/
     public constant integer FILTER_ATTACK = 0     //LESS_THAN
     public constant integer FILTER_MELEE  = 1     //LESS_THAN_OR_EQUAL
     public constant integer FILTER_OTHER  = 2     //EQUAL
@@ -336,11 +340,11 @@ struct DamageTrigger extends array
         return false
     endmethod
 
-    /*
-        Map makers should probably not use these filters,
-        unless someone tests performance to see
-        if such an ugly hack is even worth it.
-    */
+/*
+    Map makers should probably not use these filters,
+    unless someone tests performance to see
+    if such an ugly hack is even worth it.
+*/
     method checkConfig takes nothing returns boolean
 
         //call BJDebugMsg("Checking configuration")
@@ -414,12 +418,12 @@ struct DamageTrigger extends array
     integer damageType
     integer userType
 
-    // setter:
+    // getter:
     method operator runChance takes nothing returns real
         return 1.00 - this.failChance
     endmethod
 
-    // getter:
+    // setter:
     method operator runChance= takes real chance returns nothing
         set this.failChance = 1.00 - chance
     endmethod
