@@ -1,5 +1,5 @@
 /*
-    vJass Damage Engine 5.A.0.0 PREVIEW
+    vJass Damage Engine 5.A.0.0 
     
     This update requires the addition of a new 'DamageEventAttackTarget'. 
     This new unit variable is associated with the 'unit is attacked' event,
@@ -140,7 +140,7 @@ globals
     //Values to track the original pre-spirit Link/defensive damage values
     private Damage lastInstance = 0
 
-    private boolean canKick = true
+    private boolean isNotNativeRecursiveDamage = true
     private boolean waitingForDamageEventToRun = false
 
     private boolean array attacksImmune
@@ -166,7 +166,7 @@ globals
     private integer         eventFilter   = FILTER_OTHER
 
     public boolean  inception = false     //When true, it allows your trigger to potentially go recursive up to LIMBO. However it must be set per-trigger throughout the game and not only once per trigger during map initialization.
-    private boolean dreaming = false
+    private boolean callbackInProgress = false
     private integer sleepLevel = 0
     private group   recursionSources = null
     private group   recursionTargets = null
@@ -284,10 +284,10 @@ struct DamageTrigger extends array
     endmethod
 
     /*
-        Map makers should probably not use this, unless someone tests performance to see
+        Map makers should probably not use these filters,
+        unless someone tests performance to see
         if such an ugly hack is even worth it.
     */
-
     method checkConfig takes nothing returns boolean
 
         //call BJDebugMsg("Checking configuration")
@@ -387,32 +387,36 @@ struct DamageTrigger extends array
         set this.failChance  = 1.00 - (udg_DamageFilterRunChance - udg_DamageFilterFailChance)
 
         if udg_DamageFilterSourceA > 0 then
-            set this.sourceBuff         = udg_DamageFilterSourceA
+            set this.sourceBuff = udg_DamageFilterSourceA
             set udg_DamageFilterSourceA = 0
         else
-            set this.sourceBuff         = udg_DamageFilterSourceB
+            set this.sourceBuff = udg_DamageFilterSourceB
         endif
 
         if udg_DamageFilterTargetA > 0 then
-            set this.targetBuff         = udg_DamageFilterTargetA
+            set this.targetBuff = udg_DamageFilterTargetA
             set udg_DamageFilterTargetA = 0
         else
-            set this.targetBuff         = udg_DamageFilterTargetB
+            set this.targetBuff = udg_DamageFilterTargetB
         endif
 
-        set udg_DamageFilterAttackT    = -1
-        set udg_DamageFilterDamageT    = -1
-        set udg_DamageFilterSource     = null
-        set udg_DamageFilterTarget     = null
-        set udg_DamageFilterSourceT    = 0
-        set udg_DamageFilterTargetT    = 0
-        set udg_DamageFilterType       = 0
-        set udg_DamageFilterSourceB    = 0
-        set udg_DamageFilterTargetB    = 0
-        set udg_DamageFilterSourceC    = -1
-        set udg_DamageFilterTargetC    = -1
-        set udg_DamageFilterSourceI    = 0
-        set udg_DamageFilterTargetI    = 0
+        set udg_DamageFilterSource  = null
+        set udg_DamageFilterTarget  = null
+
+        //These handles can have a valid value of 0, so we need to distinguish them.
+        set udg_DamageFilterAttackT = -1
+        set udg_DamageFilterDamageT = -1
+        set udg_DamageFilterSourceC = -1
+        set udg_DamageFilterTargetC = -1
+
+        set udg_DamageFilterSourceT = 0
+        set udg_DamageFilterTargetT = 0
+        set udg_DamageFilterType    = 0
+        set udg_DamageFilterSourceB = 0
+        set udg_DamageFilterTargetB = 0
+        set udg_DamageFilterSourceI = 0
+        set udg_DamageFilterTargetI = 0
+        
         set udg_DamageFilterMinAmount  = 0.00
         set udg_DamageFilterFailChance = 0.00
         set udg_DamageFilterRunChance  = 1.00
@@ -426,11 +430,12 @@ struct DamageTrigger extends array
         set udg_DamageEventDamageT      = GetHandleId(Damage.index.damageType)
         set udg_DamageEventWeaponT      = GetHandleId(Damage.index.weaponType)
         set udg_DamageEventType         = Damage.index.userType
-static if USE_ARMOR_MOD then
-        set udg_DamageEventArmorPierced = Damage.index.armorPierced
-        set udg_DamageEventArmorT       = Damage.index.armorType
-        set udg_DamageEventDefenseT     = Damage.index.defenseType
-endif
+        
+        static if USE_ARMOR_MOD then
+            set udg_DamageEventArmorPierced = Damage.index.armorPierced
+            set udg_DamageEventArmorT       = Damage.index.armorType
+            set udg_DamageEventDefenseT     = Damage.index.defenseType
+        endif
         if full then
             set udg_DamageEventSource   = Damage.index.sourceUnit
             set udg_DamageEventTarget   = Damage.index.targetUnit
@@ -438,10 +443,11 @@ endif
             set udg_IsDamageAttack      = Damage.index.isAttack
             set udg_IsDamageCode        = Damage.index.isCode
             set udg_IsDamageSpell       = Damage.index.isSpell
-static if USE_MELEE_RANGE then
-            set udg_IsDamageMelee       = Damage.index.isMelee
-            set udg_IsDamageRanged      = Damage.index.isRanged
-endif
+            
+            static if USE_MELEE_RANGE then
+                set udg_IsDamageMelee       = Damage.index.isMelee
+                set udg_IsDamageRanged      = Damage.index.isRanged
+            endif
         endif
     endmethod
 
@@ -451,11 +457,12 @@ endif
         set Damage.index.damageType    = ConvertDamageType(udg_DamageEventDamageT)
         set Damage.index.weaponType    = ConvertWeaponType(udg_DamageEventWeaponT)
         set Damage.index.userType      = udg_DamageEventType
-static if USE_ARMOR_MOD then
-        set Damage.index.armorPierced  = udg_DamageEventArmorPierced
-        set Damage.index.armorType     = udg_DamageEventArmorT
-        set Damage.index.defenseType   = udg_DamageEventDefenseT
-endif
+        
+        static if USE_ARMOR_MOD then
+            set Damage.index.armorPierced  = udg_DamageEventArmorPierced
+            set Damage.index.armorType     = udg_DamageEventArmorT
+            set Damage.index.defenseType   = udg_DamageEventDefenseT
+        endif
     endmethod
 
     static method getVerboseStr takes string eventName returns string
@@ -495,12 +502,12 @@ endif
     endmethod
 
     private method toggleAllFilters takes boolean flag returns nothing
-        set filters[this + FILTER_ATTACK]   = flag
-        set filters[this + FILTER_MELEE]    = flag
-        set filters[this + FILTER_OTHER]    = flag
-        set filters[this + FILTER_RANGED]   = flag
-        set filters[this + FILTER_SPELL]    = flag
-        set filters[this + FILTER_CODE]     = flag
+        set filters[this + FILTER_ATTACK] = flag
+        set filters[this + FILTER_MELEE] = flag
+        set filters[this + FILTER_OTHER] = flag
+        set filters[this + FILTER_RANGED] = flag
+        set filters[this + FILTER_SPELL] = flag
+        set filters[this + FILTER_CODE] = flag
     endmethod
 
     method operator filter= takes integer opId returns nothing
@@ -509,9 +516,9 @@ endif
             call this.toggleAllFilters(true)
         else
             if opId == FILTER_ATTACK then
-                set filters[this + FILTER_ATTACK]   = true
-                set filters[this + FILTER_MELEE]    = true
-                set filters[this + FILTER_RANGED]   = true
+                set filters[this + FILTER_ATTACK] = true
+                set filters[this + FILTER_MELEE] = true
+                set filters[this + FILTER_RANGED] = true
             else
                 set filters[this + opId] = true
             endif
@@ -519,9 +526,9 @@ endif
     endmethod
 
     static method registerVerbose takes trigger whichTrig, string var, real lbs, boolean GUI, integer filt returns thistype
-        local thistype index= getStrIndex(var, lbs)
-        local thistype i    = 0
-        local thistype id   = 0
+        local thistype index = getStrIndex(var, lbs)
+        local thistype i = 0
+        local thistype id = 0
 
         if index == 0 then
             return 0
@@ -534,26 +541,26 @@ endif
             set hasLethal = true
         endif
         if trigIndexStack[0] == 0 then
-            set count              = count + 1   //List runs from index 10 and up
-            set id                 = count
+            set count = count + 1   //List runs from index 10 and up
+            set id = count
         else
-            set id                 = trigIndexStack[0]
-            set trigIndexStack[0]  = trigIndexStack[id]
+            set id = trigIndexStack[0]
+            set trigIndexStack[0] = trigIndexStack[id]
         endif
-        set lastRegistered         = id
-        set id.filter              = filt
-        set id.rootTrig            = whichTrig
-        set id.usingGUI            = GUI
-        set id.weight              = lbs
-        set id.eventStr            = var
+        set lastRegistered = id
+        set id.filter = filt
+        set id.rootTrig = whichTrig
+        set id.usingGUI = GUI
+        set id.weight = lbs
+        set id.eventStr = var
 
         //Next 2 lines added to fix a bug when using manual vJass configuration,
         //discovered and solved by lolreported
-        set id.attackType          = -1
-        set id.damageType          = -1
+        set id.attackType = -1
+        set id.damageType = -1
 		//they will probably bug out with class types as well, so I should add them, just in case:
-		set id.sourceClass         = -1
-		set id.targetClass         = -1
+		set id.sourceClass = -1
+		set id.targetClass = -1
 
         loop
             set i = index.next
@@ -561,7 +568,7 @@ endif
             set index = i
         endloop
         set index.next = id
-        set id.next    = i
+        set id.next = i
 
         //call BJDebugMsg("Registered " + I2S(id) + " to " + I2S(index) + " and before " + I2S(i))
         return lastRegistered
@@ -586,14 +593,14 @@ endif
         if this == 0 then
             return false
         endif
-        set prev.next               = this.next
+        set prev.next = this.next
 
-        set trigIndexStack[this]    = trigIndexStack[0]
-        set trigIndexStack[0]       = this
+        set trigIndexStack[this] = trigIndexStack[0]
+        set trigIndexStack[0] = this
 
         if reset then
             call this.configure()
-            set this.configured     = false
+            set this.configured = false
             call thistype(this*FILTER_MAX).toggleAllFilters(false)
         endif
         return true
@@ -613,10 +620,10 @@ endif
             local boolean mod = cat <= DAMAGE
         endif
 
-        if dreaming then
+        if callbackInProgress then
             return
         endif
-        set dreaming = true
+        set callbackInProgress = true
         call DisableTrigger(damagingTrigger)
         call DisableTrigger(damagedTrigger)
         call EnableTrigger(recursiveTrigger)
@@ -636,7 +643,8 @@ endif
                 */ filters[this*FILTER_MAX + d.eFilter] and /*
                 */ IsTriggerEnabled(this.rootTrig) and /*
                 */ ((not this.configured) or (this.checkConfig())) and /*
-                */ (cat != AOE or udg_DamageEventAOE > 1 or this.eventStr == "udg_SourceDamageEvent") then
+                */ (cat != AOE or udg_DamageEventAOE > 1 or this.eventStr == "udg_SourceDamageEvent") /*
+            */ then
                 static if USE_GUI then
                     if mod then
                         if this.usingGUI then
@@ -672,14 +680,14 @@ endif
                         if this.usingGUI then
                             //! runtextmacro optional DAMAGE_EVENT_MOD_PLUGIN_PDD()
                             if cat != MOD then
-                                set d.damage            = udg_DamageEventAmount
+                                set d.damage = udg_DamageEventAmount
                             else
-                                set structUnset         = true
+                                set structUnset = true
                             endif
                         elseif cat != MOD then
-                            set udg_DamageEventAmount   = d.damage
+                            set udg_DamageEventAmount = d.damage
                         else
-                            set guiUnset                = true
+                            set guiUnset = true
                         endif
                     endif
                     if udg_RemoveDamageEvent then
@@ -706,12 +714,12 @@ endif
         call DisableTrigger(recursiveTrigger)
         call EnableTrigger(damagingTrigger)
         call EnableTrigger(damagedTrigger)
-        set dreaming                                = false
+        set callbackInProgress = false
     endmethod
 
-    static trigger array    autoTriggers
-    static boolexpr array   autoFuncs
-    static integer          autoN = 0
+    static trigger array autoTriggers
+    static boolexpr array autoFuncs
+    static integer autoN = 0
 
     static method operator [] takes code callback returns trigger
         local integer i = 0
@@ -904,11 +912,11 @@ struct Damage extends array
         call EnableTrigger(damagingTrigger)
         call EnableTrigger(damagedTrigger)
 
-        set kicking     = false
+        set kicking = false
         set damageStack = 0
-        set prepped     = 0
-        set dreaming    = false
-        set sleepLevel  = 0
+        set prepped = 0
+        set callbackInProgress = false
+        set sleepLevel = 0
         call GroupClear(recursionSources)
         call GroupClear(recursionTargets)
 
@@ -924,7 +932,7 @@ struct Damage extends array
             call afterDamage()
         endif
 
-        if canKick and not kicking then
+        if isNotNativeRecursiveDamage and not kicking then
             if damageStack != 0 then
                 set kicking = true
                 loop
@@ -987,7 +995,7 @@ struct Damage extends array
         static if USE_ARMOR_MOD then
             call Damage.index.setArmor(true)
         endif
-        set canKick = true
+        set isNotNativeRecursiveDamage = true
         set kicking = false
 
         set waitingForDamageEventToRun = false
@@ -1002,14 +1010,14 @@ struct Damage extends array
 
     static method operator enabled= takes boolean b returns nothing
         if b then
-            if dreaming then
+            if callbackInProgress then
                 call EnableTrigger(recursiveTrigger)
             else
                 call EnableTrigger(damagingTrigger)
                 call EnableTrigger(damagedTrigger)
             endif
         else
-            if dreaming then
+            if callbackInProgress then
                 call DisableTrigger(recursiveTrigger)
             else
                 call DisableTrigger(damagingTrigger)
@@ -1028,8 +1036,8 @@ struct Damage extends array
         if waitingForDamageEventToRun then
             call failsafeClear() //WarCraft 3 didn't run the DAMAGED event despite running the DAMAGING event.
         else
-            set canKick     = true
-            set kicking     = false
+            set isNotNativeRecursiveDamage = true
+            set kicking = false
             call finish()
         endif
 
@@ -1041,7 +1049,7 @@ struct Damage extends array
     endmethod
 
     private static method wakeUp takes nothing returns nothing
-        set dreaming = false
+        set callbackInProgress = false
         set Damage.enabled = true
 
         call ForForce(bj_FORCE_PLAYER[0], function thistype.getOutOfBed) //Moved to a new thread in case of a thread crash
@@ -1053,9 +1061,9 @@ struct Damage extends array
             set arisen = false
         endif
 
-        set Damage.count    = 0
-        set Damage.index    = 0
-        set timerStarted        = false
+        set Damage.count = 0
+        set Damage.index = 0
+        set timerStarted = false
 
         //call BJDebugMsg("Timer wrapped up")
     endmethod
@@ -1066,19 +1074,27 @@ struct Damage extends array
             set this.recursiveTrig = DamageTrigger.eventIndex
 
             if not this.isCode then
+                // If the recursive damage trigger is executed, this can only
+                // mean that the user has manually dealt damage from a trigger.
+                // Hence flag the damage as being 'code' if they didn't already
+                // manually do this.
                 set this.isCode = true
                 set this.userType = TYPE_CODE
             endif
 
             set inception = inception or DamageTrigger.eventIndex.inceptionTrig
 
-            if kicking and IsUnitInGroup(this.sourceUnit, recursionSources) and IsUnitInGroup(this.targetUnit, recursionTargets) then
+            if kicking and /*
+                */ IsUnitInGroup(this.sourceUnit, recursionSources) and /*
+                */ IsUnitInGroup(this.targetUnit, recursionTargets) /*
+            */ then
                 if not inception then
                     set DamageTrigger.eventIndex.trigFrozen = true
                 elseif not DamageTrigger.eventIndex.trigFrozen then
                     set DamageTrigger.eventIndex.inceptionTrig = true
                     if DamageTrigger.eventIndex.levelsDeep < sleepLevel then
-                        set DamageTrigger.eventIndex.levelsDeep = DamageTrigger.eventIndex.levelsDeep + 1
+                        set DamageTrigger.eventIndex.levelsDeep = /*
+                            */ DamageTrigger.eventIndex.levelsDeep + 1
                         if DamageTrigger.eventIndex.levelsDeep >= LIMBO then
                             set DamageTrigger.eventIndex.trigFrozen = true
                         endif
@@ -1095,30 +1111,39 @@ struct Damage extends array
     endmethod
 
     private static method clearNexts takes nothing returns nothing
-        set udg_NextDamageIsAttack      = false
-        set udg_NextDamageType          = 0
-        set udg_NextDamageWeaponT       = 0
+        set udg_NextDamageIsAttack = false
+        set udg_NextDamageType = 0
+        set udg_NextDamageWeaponT = 0
 
         static if USE_MELEE_RANGE then
-            set udg_NextDamageIsMelee       = false
-            set udg_NextDamageIsRanged      = false
+            set udg_NextDamageIsMelee = false
+            set udg_NextDamageIsRanged = false
         endif
     endmethod
 
-    static method create takes unit src, unit tgt, real amt, boolean a, attacktype at, damagetype dt, weapontype wt returns Damage
-        local Damage d      = Damage.count + 1
-        set Damage.count    = d
-        set d.sourceUnit    = src
-        set d.targetUnit    = tgt
-        set d.damage        = amt
-        set d.prevAmt       = amt
+    static method create takes /*
+        */ unit src, /*
+        */ unit tgt, /*
+        */ real amt, /*
+        */ boolean isAttack, /*
+        */ attacktype at, /*
+        */ damagetype dt, /*
+        */ weapontype wt /*
+    */ returns Damage
+        local Damage d = Damage.count + 1
+        set Damage.count = d
+        
+        set d.sourceUnit = src
+        set d.targetUnit = tgt
+        set d.damage = amt
+        set d.prevAmt = amt
 
-        set d.attackType    = at
-        set d.damageType    = dt
-        set d.weaponType    = wt
+        set d.damageType = dt
+        set d.attackType = at
+        set d.weaponType = wt
 
-        set d.isAttack      = udg_NextDamageIsAttack or a
-        set d.isSpell       = d.attackType == null and not d.isAttack
+        set d.isAttack = udg_NextDamageIsAttack or isAttack
+        set d.isSpell = d.attackType == null and not d.isAttack
         return d
     endmethod
 
@@ -1153,24 +1178,29 @@ struct Damage extends array
                 set d.isRanged = udg_NextDamageIsRanged
             endif
 
-            set d.eFilter               = FILTER_CODE
+            set d.eFilter = FILTER_CODE
 
             if udg_NextDamageWeaponT != 0 then
                 set d.weaponType = ConvertWeaponType(udg_NextDamageWeaponT)
                 set udg_NextDamageWeaponT = 0
             endif
         else
-            set d.userType              = 0
+            set d.userType = 0
 
             if d.damageType == DAMAGE_TYPE_NORMAL and d.isAttack then
 
                 static if USE_MELEE_RANGE then
-                    set d.isMelee           = IsUnitType(d.sourceUnit, UNIT_TYPE_MELEE_ATTACKER)
-                    set d.isRanged          = IsUnitType(d.sourceUnit, UNIT_TYPE_RANGED_ATTACKER)
+                    set d.isMelee = IsUnitType(d.sourceUnit, UNIT_TYPE_MELEE_ATTACKER)
+                    set d.isRanged = IsUnitType(d.sourceUnit, UNIT_TYPE_RANGED_ATTACKER)
 
                     if d.isMelee and d.isRanged then
-                        set d.isMelee       = d.weaponType != null  // Melee units play a sound when damaging
-                        set d.isRanged      = not d.isMelee         // In the case where a unit is both ranged and melee, the ranged attack plays no sound.
+                        // Melee units always play a sound when damaging in WC3, 
+                        // so this is an easy check.
+                        set d.isMelee = d.weaponType != null
+
+                        // In the case where a unit is both ranged and melee,
+                        // the ranged attack plays no sound.
+                        set d.isRanged = not d.isMelee
                     endif
 
                     if d.isMelee then
@@ -1191,8 +1221,9 @@ struct Damage extends array
                 endif
 
                 static if USE_MELEE_RANGE then
-                    set d.isMelee           = false
-                    set d.isRanged          = false
+                    // Spells are neither melee nor ranged.
+                    set d.isMelee = false
+                    set d.isRanged = false
                 endif
             endif
         endif
@@ -1208,7 +1239,7 @@ struct Damage extends array
     endmethod
 
     private static method onDamaging takes nothing returns boolean
-        local Damage d              = Damage.createFromEvent()
+        local Damage d = Damage.createFromEvent()
 
         //call BJDebugMsg("Pre-damage event running for " + GetUnitName(GetTriggerUnit()))
 
@@ -1221,8 +1252,8 @@ struct Damage extends array
                     */ d.damageType == DAMAGE_TYPE_PLANT /*
                 */ then
                     set waitingForDamageEventToRun = false
-                    set lastInstance= Damage.index
-                    set canKick     = false
+                    set lastInstance = Damage.index
+                    set isNotNativeRecursiveDamage = false
                 else
                     call failsafeClear() //Not an overlapping event - just wrap it up
                 endif
@@ -1261,7 +1292,7 @@ struct Damage extends array
 
         if d.doPreEvents(true) then
             call DamageTrigger.ZERO.run()
-            set canKick = true
+            set isNotNativeRecursiveDamage = true
             call finish()
         endif
         set waitingForDamageEventToRun = lastInstance == 0 or /*
@@ -1280,7 +1311,7 @@ struct Damage extends array
 
         if prepped > 0 then
             set prepped = 0
-        elseif dreaming or d.prevAmt == 0.00 then
+        elseif callbackInProgress or d.prevAmt == 0.00 then
             return false
         elseif waitingForDamageEventToRun then
             set waitingForDamageEventToRun = false
@@ -1291,7 +1322,13 @@ struct Damage extends array
             set Damage.index = lastInstance
             set lastInstance = 0
             set d = Damage.index
-            set canKick = true
+
+            // Since the native recursive damage has now wrapped up, we can resume
+            // handling events as normal at this point. This means that the original
+            // target that the DAMAGING event was triggered for is now finally getting
+            // its DAMAGED event.
+            set isNotNativeRecursiveDamage = true
+
             call DamageTrigger.setGUIFromStruct(true)
         endif
 
@@ -1309,7 +1346,8 @@ struct Damage extends array
                 if udg_DamageEventPrevAmt == 0.00 then
                     set udg_DamageScalingUser = 0.00
                 else
-                    set udg_DamageScalingUser = udg_DamageEventAmount / udg_DamageEventPrevAmt
+                    set udg_DamageScalingUser = /*
+                        */ udg_DamageEventAmount / udg_DamageEventPrevAmt
                 endif
             endif
         endif
@@ -1345,7 +1383,9 @@ struct Damage extends array
                                 */ GetWidgetLife(udg_DamageEventTarget) - udg_LethalDamageHP
                             set d.damage = udg_DamageEventAmount
                         endif
-                        if udg_DamageEventType < 0 and udg_LethalDamageHP <= DEATH_VAL then
+                        if udg_DamageEventType < 0 and /*
+                            */ udg_LethalDamageHP <= DEATH_VAL /*
+                        */ then
                             call SetUnitExploded(udg_DamageEventTarget, true)
                         endif
                     endif
@@ -1353,10 +1393,13 @@ struct Damage extends array
             endif
 
             static if USE_SCALING then
-                if udg_DamageEventPrevAmt == 0.00 or udg_DamageScalingWC3 == 0.00 then
+                if udg_DamageEventPrevAmt == 0.00 or /*
+                    */ udg_DamageScalingWC3 == 0.00 /*
+                */ then
                     set udg_DamageScalingUser = 0.00
                 else
-                    set udg_DamageScalingUser = udg_DamageEventAmount / udg_DamageEventPrevAmt / udg_DamageScalingWC3
+                    set udg_DamageScalingUser = /*
+                        */ udg_DamageEventAmount / udg_DamageEventPrevAmt / udg_DamageScalingWC3
                 endif
             endif
         endif
@@ -1394,7 +1437,7 @@ struct Damage extends array
            set udg_NextDamageType = TYPE_CODE
         endif
 
-        if dreaming then
+        if callbackInProgress then
             set d = create(src, tgt, amt, a, at, dt, wt)
             set d.isCode = true
             set d.eFilter = FILTER_CODE
@@ -1422,11 +1465,23 @@ struct Damage extends array
         return d
     endmethod
 
-    static method applySpell takes unit src, unit tgt, real amt, damagetype dt returns Damage
+    static method applySpell takes /*
+        */ unit src, /*
+        */ unit tgt, /*
+        */ real amt, /*
+        */ damagetype dt /*
+    */ returns Damage
         return apply(src, tgt, amt, false, false, null, dt, null)
     endmethod
 
-    static method applyAttack takes unit src, unit tgt, real amt, boolean ranged, attacktype at, weapontype wt returns Damage
+    static method applyAttack takes /*
+        */ unit src, /*
+        */ unit tgt, /*
+        */ real amt, /*
+        */ boolean ranged, /*
+        */ attacktype at, /*
+        */ weapontype wt /*
+    */ returns Damage
         return apply(src, tgt, amt, true, ranged, at, DAMAGE_TYPE_NORMAL, wt)
     endmethod
 
@@ -1515,73 +1570,73 @@ public function DebugStr takes nothing returns nothing
         set i = i + 1
     endloop
 
-    set udg_AttackTypeDebugStr[0]        = "SPELLS"   //ATTACK_TYPE_NORMAL in JASS
-    set udg_AttackTypeDebugStr[1]        = "NORMAL"   //ATTACK_TYPE_MELEE in JASS
-    set udg_AttackTypeDebugStr[2]        = "PIERCE"
-    set udg_AttackTypeDebugStr[3]        = "SIEGE"
-    set udg_AttackTypeDebugStr[4]        = "MAGIC"
-    set udg_AttackTypeDebugStr[5]        = "CHAOS"
-    set udg_AttackTypeDebugStr[6]        = "HERO"
-    set udg_DamageTypeDebugStr[0]        = "UNKNOWN"
-    set udg_DamageTypeDebugStr[4]        = "NORMAL"
-    set udg_DamageTypeDebugStr[5]        = "ENHANCED"
-    set udg_DamageTypeDebugStr[8]        = "FIRE"
-    set udg_DamageTypeDebugStr[9]        = "COLD"
-    set udg_DamageTypeDebugStr[10]       = "LIGHTNING"
-    set udg_DamageTypeDebugStr[11]       = "POISON"
-    set udg_DamageTypeDebugStr[12]       = "DISEASE"
-    set udg_DamageTypeDebugStr[13]       = "DIVINE"
-    set udg_DamageTypeDebugStr[14]       = "MAGIC"
-    set udg_DamageTypeDebugStr[15]       = "SONIC"
-    set udg_DamageTypeDebugStr[16]       = "ACID"
-    set udg_DamageTypeDebugStr[17]       = "FORCE"
-    set udg_DamageTypeDebugStr[18]       = "DEATH"
-    set udg_DamageTypeDebugStr[19]       = "MIND"
-    set udg_DamageTypeDebugStr[20]       = "PLANT"
-    set udg_DamageTypeDebugStr[21]       = "DEFENSIVE"
-    set udg_DamageTypeDebugStr[22]       = "DEMOLITION"
-    set udg_DamageTypeDebugStr[23]       = "SLOW_POISON"
-    set udg_DamageTypeDebugStr[24]       = "SPIRIT_LINK"
-    set udg_DamageTypeDebugStr[25]       = "SHADOW_STRIKE"
-    set udg_DamageTypeDebugStr[26]       = "UNIVERSAL"
-    set udg_WeaponTypeDebugStr[0]        = "NONE"    //WEAPON_TYPE_WHOKNOWS in JASS
-    set udg_WeaponTypeDebugStr[1]        = "METAL_LIGHT_CHOP"
-    set udg_WeaponTypeDebugStr[2]        = "METAL_MEDIUM_CHOP"
-    set udg_WeaponTypeDebugStr[3]        = "METAL_HEAVY_CHOP"
-    set udg_WeaponTypeDebugStr[4]        = "METAL_LIGHT_SLICE"
-    set udg_WeaponTypeDebugStr[5]        = "METAL_MEDIUM_SLICE"
-    set udg_WeaponTypeDebugStr[6]        = "METAL_HEAVY_SLICE"
-    set udg_WeaponTypeDebugStr[7]        = "METAL_MEDIUM_BASH"
-    set udg_WeaponTypeDebugStr[8]        = "METAL_HEAVY_BASH"
-    set udg_WeaponTypeDebugStr[9]        = "METAL_MEDIUM_STAB"
-    set udg_WeaponTypeDebugStr[10]       = "METAL_HEAVY_STAB"
-    set udg_WeaponTypeDebugStr[11]       = "WOOD_LIGHT_SLICE"
-    set udg_WeaponTypeDebugStr[12]       = "WOOD_MEDIUM_SLICE"
-    set udg_WeaponTypeDebugStr[13]       = "WOOD_HEAVY_SLICE"
-    set udg_WeaponTypeDebugStr[14]       = "WOOD_LIGHT_BASH"
-    set udg_WeaponTypeDebugStr[15]       = "WOOD_MEDIUM_BASH"
-    set udg_WeaponTypeDebugStr[16]       = "WOOD_HEAVY_BASH"
-    set udg_WeaponTypeDebugStr[17]       = "WOOD_LIGHT_STAB"
-    set udg_WeaponTypeDebugStr[18]       = "WOOD_MEDIUM_STAB"
-    set udg_WeaponTypeDebugStr[19]       = "CLAW_LIGHT_SLICE"
-    set udg_WeaponTypeDebugStr[20]       = "CLAW_MEDIUM_SLICE"
-    set udg_WeaponTypeDebugStr[21]       = "CLAW_HEAVY_SLICE"
-    set udg_WeaponTypeDebugStr[22]       = "AXE_MEDIUM_CHOP"
-    set udg_WeaponTypeDebugStr[23]       = "ROCK_HEAVY_BASH"
-    set udg_DefenseTypeDebugStr[0]       = "LIGHT"
-    set udg_DefenseTypeDebugStr[1]       = "MEDIUM"
-    set udg_DefenseTypeDebugStr[2]       = "HEAVY"
-    set udg_DefenseTypeDebugStr[3]       = "FORTIFIED"
-    set udg_DefenseTypeDebugStr[4]       = "NORMAL"   //Typically deals flat damage to all armor types
-    set udg_DefenseTypeDebugStr[5]       = "HERO"
-    set udg_DefenseTypeDebugStr[6]       = "DIVINE"
-    set udg_DefenseTypeDebugStr[7]       = "UNARMORED"
-    set udg_ArmorTypeDebugStr[0]         = "NONE"      //ARMOR_TYPE_WHOKNOWS in JASS, added in 1.31
-    set udg_ArmorTypeDebugStr[1]         = "FLESH"
-    set udg_ArmorTypeDebugStr[2]         = "METAL"
-    set udg_ArmorTypeDebugStr[3]         = "WOOD"
-    set udg_ArmorTypeDebugStr[4]         = "ETHEREAL"
-    set udg_ArmorTypeDebugStr[5]         = "STONE"
+    set udg_AttackTypeDebugStr[0]  = "SPELLS"   //ATTACK_TYPE_NORMAL in JASS
+    set udg_AttackTypeDebugStr[1]  = "NORMAL"   //ATTACK_TYPE_MELEE in JASS
+    set udg_AttackTypeDebugStr[2]  = "PIERCE"
+    set udg_AttackTypeDebugStr[3]  = "SIEGE"
+    set udg_AttackTypeDebugStr[4]  = "MAGIC"
+    set udg_AttackTypeDebugStr[5]  = "CHAOS"
+    set udg_AttackTypeDebugStr[6]  = "HERO"
+    set udg_DamageTypeDebugStr[0]  = "UNKNOWN"
+    set udg_DamageTypeDebugStr[4]  = "NORMAL"
+    set udg_DamageTypeDebugStr[5]  = "ENHANCED"
+    set udg_DamageTypeDebugStr[8]  = "FIRE"
+    set udg_DamageTypeDebugStr[9]  = "COLD"
+    set udg_DamageTypeDebugStr[10] = "LIGHTNING"
+    set udg_DamageTypeDebugStr[11] = "POISON"
+    set udg_DamageTypeDebugStr[12] = "DISEASE"
+    set udg_DamageTypeDebugStr[13] = "DIVINE"
+    set udg_DamageTypeDebugStr[14] = "MAGIC"
+    set udg_DamageTypeDebugStr[15] = "SONIC"
+    set udg_DamageTypeDebugStr[16] = "ACID"
+    set udg_DamageTypeDebugStr[17] = "FORCE"
+    set udg_DamageTypeDebugStr[18] = "DEATH"
+    set udg_DamageTypeDebugStr[19] = "MIND"
+    set udg_DamageTypeDebugStr[20] = "PLANT"
+    set udg_DamageTypeDebugStr[21] = "DEFENSIVE"
+    set udg_DamageTypeDebugStr[22] = "DEMOLITION"
+    set udg_DamageTypeDebugStr[23] = "SLOW_POISON"
+    set udg_DamageTypeDebugStr[24] = "SPIRIT_LINK"
+    set udg_DamageTypeDebugStr[25] = "SHADOW_STRIKE"
+    set udg_DamageTypeDebugStr[26] = "UNIVERSAL"
+    set udg_WeaponTypeDebugStr[0]  = "NONE"    //WEAPON_TYPE_WHOKNOWS in JASS
+    set udg_WeaponTypeDebugStr[1]  = "METAL_LIGHT_CHOP"
+    set udg_WeaponTypeDebugStr[2]  = "METAL_MEDIUM_CHOP"
+    set udg_WeaponTypeDebugStr[3]  = "METAL_HEAVY_CHOP"
+    set udg_WeaponTypeDebugStr[4]  = "METAL_LIGHT_SLICE"
+    set udg_WeaponTypeDebugStr[5]  = "METAL_MEDIUM_SLICE"
+    set udg_WeaponTypeDebugStr[6]  = "METAL_HEAVY_SLICE"
+    set udg_WeaponTypeDebugStr[7]  = "METAL_MEDIUM_BASH"
+    set udg_WeaponTypeDebugStr[8]  = "METAL_HEAVY_BASH"
+    set udg_WeaponTypeDebugStr[9]  = "METAL_MEDIUM_STAB"
+    set udg_WeaponTypeDebugStr[10] = "METAL_HEAVY_STAB"
+    set udg_WeaponTypeDebugStr[11] = "WOOD_LIGHT_SLICE"
+    set udg_WeaponTypeDebugStr[12] = "WOOD_MEDIUM_SLICE"
+    set udg_WeaponTypeDebugStr[13] = "WOOD_HEAVY_SLICE"
+    set udg_WeaponTypeDebugStr[14] = "WOOD_LIGHT_BASH"
+    set udg_WeaponTypeDebugStr[15] = "WOOD_MEDIUM_BASH"
+    set udg_WeaponTypeDebugStr[16] = "WOOD_HEAVY_BASH"
+    set udg_WeaponTypeDebugStr[17] = "WOOD_LIGHT_STAB"
+    set udg_WeaponTypeDebugStr[18] = "WOOD_MEDIUM_STAB"
+    set udg_WeaponTypeDebugStr[19] = "CLAW_LIGHT_SLICE"
+    set udg_WeaponTypeDebugStr[20] = "CLAW_MEDIUM_SLICE"
+    set udg_WeaponTypeDebugStr[21] = "CLAW_HEAVY_SLICE"
+    set udg_WeaponTypeDebugStr[22] = "AXE_MEDIUM_CHOP"
+    set udg_WeaponTypeDebugStr[23] = "ROCK_HEAVY_BASH"
+    set udg_DefenseTypeDebugStr[0] = "LIGHT"
+    set udg_DefenseTypeDebugStr[1] = "MEDIUM"
+    set udg_DefenseTypeDebugStr[2] = "HEAVY"
+    set udg_DefenseTypeDebugStr[3] = "FORTIFIED"
+    set udg_DefenseTypeDebugStr[4] = "NORMAL"   //Typically deals flat damage to all armor types
+    set udg_DefenseTypeDebugStr[5] = "HERO"
+    set udg_DefenseTypeDebugStr[6] = "DIVINE"
+    set udg_DefenseTypeDebugStr[7] = "UNARMORED"
+    set udg_ArmorTypeDebugStr[0]   = "NONE"      //ARMOR_TYPE_WHOKNOWS in JASS, added in 1.31
+    set udg_ArmorTypeDebugStr[1]   = "FLESH"
+    set udg_ArmorTypeDebugStr[2]   = "METAL"
+    set udg_ArmorTypeDebugStr[3]   = "WOOD"
+    set udg_ArmorTypeDebugStr[4]   = "ETHEREAL"
+    set udg_ArmorTypeDebugStr[5]   = "STONE"
     // -
     // Added 25 July 2017 to allow detection of things like Bash or Pulverize or AOE spread
     // -
