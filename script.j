@@ -1,11 +1,7 @@
 /*
-    vJass Damage Engine 5.A.0.0 
-    
-    This update requires the addition of a new 'DamageEventAttackTarget'. 
-    This new unit variable is associated with the 'unit is attacked' event,
-    and identifies it correctly during splash damage/multi-hit attacks.
+    vJass Damage Engine 5.8.0.1
 */
-//! novjass
+/*
 JASS API:
 
     struct Damage extends array
@@ -32,11 +28,12 @@ JASS API:
 
         readonly integer eFilter
 
-        - Set to false to disable the damage event triggers or to true to reverse that
-        static boolean operator enabled
+    Set to false to disable the damage event triggers or to true to reverse that:
+        static boolean enabled
 
-        - Same arguments as "UnitDamageTarget" but has the benefit of being performance-friendly during recursive events.
-        - Will automatically cause the damage to be registered as Code damage.
+    Same arguments as "UnitDamageTarget" but has the benefit of being performance-friendly during recursive events.
+    Will automatically cause the damage to be registered as Code damage.
+
         static method apply takes
             unit source,
             unit target,
@@ -48,7 +45,8 @@ JASS API:
             weapontype wt
         returns Damage
 
-        - A simplified version of the above function that autofills each boolean, attacktype and weapontype.
+    A simplified version of the above function that autofills each boolean, attacktype and weapontype.
+    
         static method applySpell takes
             unit src,
             unit tgt,
@@ -56,8 +54,9 @@ JASS API:
             damagetype dt
         returns Damage
 
-        - A different variation of the above which autofills the "isAttack" boolean
-        - and populates damagetype as DAMAGE_TYPE_NORMAL.
+    A different variation of the above which autofills the "isAttack" boolean
+    and populates damagetype as DAMAGE_TYPE_NORMAL.
+
         static method applyAttack takes
             unit src,
             unit tgt,
@@ -71,12 +70,12 @@ JASS API:
         method operator filter= takes integer filter returns nothing
         // Apply primary filters such as DamageEngine_FILTER_MELEE/RANGED/SPELL which are based off of limitop handles to enable easier access for GUI folks
         // Full filter list:
-        - global integer DamageEngine_FILTER_ATTACK
-        - global integer DamageEngine_FILTER_MELEE
-        - global integer DamageEngine_FILTER_OTHER
-        - global integer DamageEngine_FILTER_RANGED
-        - global integer DamageEngine_FILTER_SPELL
-        - global integer DamageEngine_FILTER_CODE
+        - integer DamageEngine_FILTER_ATTACK
+        - integer DamageEngine_FILTER_MELEE
+        - integer DamageEngine_FILTER_OTHER
+        - integer DamageEngine_FILTER_RANGED
+        - integer DamageEngine_FILTER_SPELL
+        - integer DamageEngine_FILTER_CODE
 
         boolean configured //set to True after configuring any filters listed below.
 
@@ -95,26 +94,70 @@ JASS API:
         integer damageType
         integer userType
 
-        //The string in the aruments below requires the following API:
-        //  "" for standard damage event
-        //  "Modifier(or Mod if you prefer)/After/Lethal/AOE" for the others
-        static method registerTrigger takes trigger whichTrig, string var, real value returns nothing
-        static method unregister takes trigger t, string eventName, real value, boolean reset returns boolean
+    The string in the aruments below requires the following API:
+      "" for standard damage event
+      "Modifier(or Mod if you prefer)/After/Lethal/AOE" for the others
 
-        static method getIndex takes trigger t, string eventName, real value returns integer
+        static method registerTrigger takes
+            trigger whichTrig, 
+            string var, 
+            real value 
+        returns nothing
+        
+            static method unregister takes 
+            trigger whichTrig, 
+            string eventName, 
+            real value, 
+            boolean reset 
+        returns boolean
 
-        //If you already have the index of the trigger you want to unregister.
-        method unregisterByIndex takes boolean reset returns boolean
+        static method getIndex takes 
+            trigger fromTrigger, 
+            string eventName, 
+            real value 
+        returns integer
 
-        // Converts a code argument to a trigger, while checking if the same code had already been registered before.
-        static method operator [] takes code callback returns trigger
+    If you already have the index of the trigger you want to unregister:
+        
+        method unregisterByIndex takes 
+            boolean reset
+        returns boolean
 
-    //The accepted strings here use the same criteria as DamageTrigger.getIndex/registerTrigger/unregister
-    function TriggerRegisterDamageEngineEx takes trigger whichTrig, string eventName, real value, integer opId returns nothing
-    function TriggerRegisterDamageEngine takes trigger whichTrig, string eventName, real value returns nothing
-    function RegisterDamageEngineEx takes code callback, string eventName, real value, integer opId returns nothing
-    function RegisterDamageEngine takes code callback, string eventName, real value returns nothing
-//! endnovjass
+    Converts a code argument to a trigger, while checking if the same code had already been registered before.
+      Use it via DamageTrigger[function MyCallbackFunction]
+    
+        static method operator [] takes 
+            code callback
+        returns trigger
+
+    The accepted strings here use the same criteria as DamageTrigger.getIndex/registerTrigger/unregister:
+
+        function TriggerRegisterDamageEngineEx takes
+            trigger whichTrig,
+            string eventName,
+            real value,
+            integer opId 
+        returns nothing
+
+        function TriggerRegisterDamageEngine takes 
+            trigger whichTrig, 
+            string eventName, 
+            real value
+        returns nothing
+        
+        function RegisterDamageEngineEx takes 
+            code callback, 
+            string eventName, 
+            real value, 
+            integer opId 
+        returns nothing
+        
+            function RegisterDamageEngine takes 
+            code callback, 
+            string eventName, 
+            real value 
+        returns nothing
+*/
 
 //===========================================================================
 library DamageEngine
@@ -127,8 +170,11 @@ globals
     private constant boolean USE_MELEE_RANGE = true      //If you do not detect melee nor ranged damage, set this to false
     private constant boolean USE_LETHAL      = true      //If you do not use LethalDamageEvent nor negative damage (explosive) types, set this to false
 
-    //When manually-enabled recursion is enabled via DamageEngine_recurion, the engine will never go deeper than LIMBO:
-    private constant integer LIMBO = 16
+/*
+    When manually-enabled recursion is enabled via DamageEngine_inception, 
+    the engine will never go deeper than MAX_RECURSIVE_TOLERANCE:
+*/
+    private constant integer MAX_RECURSIVE_TOLERANCE = 16
 
     public constant integer TYPE_CODE = 1         //Must be the same as udg_DamageTypeCode, or 0 if you prefer to disable the automatic flag.
     public constant integer TYPE_PURE = 2         //Must be the same as udg_DamageTypePure
@@ -165,18 +211,25 @@ globals
     public constant integer FILTER_MAX    = 6
     private integer         eventFilter   = FILTER_OTHER
 
-    public boolean  inception = false     //When true, it allows your trigger to potentially go recursive up to LIMBO. However it must be set per-trigger throughout the game and not only once per trigger during map initialization.
-    private boolean callbackInProgress = false
-    private integer sleepLevel = 0
+/*
+    When true, it allows your trigger to go recursively up to 
+    MAX_RECURSIVE_TOLERANCE (if needed). It must be set before dealing damage.
+*/
+    public boolean  inception = false
+
+    private boolean callbacksInProgress = false
+    private integer recursiveCallbackDepth = 0
     private group   recursionSources = null
     private group   recursionTargets = null
-    private boolean kicking = false
-    private boolean eventsRun = false
+    private boolean recursiveCallbaksInProgress = false
+    private boolean nativeEventsCompleted = false
+    private boolean atLeastOneLethalDamageEventRegistered = false
+
+    // Struct members made private to this library.
     private keyword run
     private keyword trigFrozen
-    private keyword levelsDeep
-    private keyword inceptionTrig
-    private boolean hasLethal = false
+    private keyword ownRecursiveDepth
+    private keyword manualRecursionRequested
 endglobals
 
 native UnitAlive takes unit u returns boolean
@@ -339,9 +392,9 @@ struct DamageTrigger extends array
     private trigger rootTrig
 
     //The below variables are to be treated as private
-    boolean trigFrozen      //Whether the trigger is currently disabled due to recursion
-    integer levelsDeep      //How deep the user recursion currently is.
-    boolean inceptionTrig   //Added in 5.4.2 to simplify the inception variable for very complex DamageEvent triggers.
+    boolean trigFrozen          //Whether the trigger is currently disabled due to recursion
+    integer ownRecursiveDepth   //How deep the user recursion currently is.
+    boolean manualRecursionRequested       //Added in 5.4.2 to simplify the inception variable for very complex DamageEvent triggers.
 
     //configuration variables:
     boolean configured
@@ -400,8 +453,8 @@ struct DamageTrigger extends array
             set this.targetBuff = udg_DamageFilterTargetB
         endif
 
-        set udg_DamageFilterSource  = null
-        set udg_DamageFilterTarget  = null
+        set udg_DamageFilterSource = null
+        set udg_DamageFilterTarget = null
 
         //These handles can have a valid value of 0, so we need to distinguish them.
         set udg_DamageFilterAttackT = -1
@@ -511,7 +564,7 @@ struct DamageTrigger extends array
     endmethod
 
     method operator filter= takes integer opId returns nothing
-        set this = this*FILTER_MAX
+        set this = this * FILTER_MAX
         if opId == FILTER_OTHER then
             call this.toggleAllFilters(true)
         else
@@ -525,7 +578,13 @@ struct DamageTrigger extends array
         endif
     endmethod
 
-    static method registerVerbose takes trigger whichTrig, string var, real lbs, boolean GUI, integer filt returns thistype
+    static method registerVerbose takes /*
+        */ trigger whichTrig, /*
+        */ string var, /*
+        */ real lbs, /*
+        */ boolean GUI, /*
+        */ integer filt /*
+    */ returns thistype
         local thistype index = getStrIndex(var, lbs)
         local thistype i = 0
         local thistype id = 0
@@ -533,13 +592,14 @@ struct DamageTrigger extends array
         if index == 0 then
             return 0
         elseif lastRegistered.rootTrig == whichTrig and lastRegistered.usingGUI then
-            set filters[lastRegistered*FILTER_MAX + filt] = true //allows GUI to register multiple different types of Damage filters to the same trigger
+            //allows GUI to register multiple different types of Damage filters to the same trigger
+            set filters[lastRegistered*FILTER_MAX + filt] = true
             return 0
         endif
 
-        if not hasLethal and index == LETHAL then
-            set hasLethal = true
-        endif
+        set atLeastOneLethalDamageEventRegistered = /*
+            */ atLeastOneLethalDamageEventRegistered or index == LETHAL
+
         if trigIndexStack[0] == 0 then
             set count = count + 1   //List runs from index 10 and up
             set id = count
@@ -558,6 +618,7 @@ struct DamageTrigger extends array
         //discovered and solved by lolreported
         set id.attackType = -1
         set id.damageType = -1
+
 		//they will probably bug out with class types as well, so I should add them, just in case:
 		set id.sourceClass = -1
 		set id.targetClass = -1
@@ -579,7 +640,11 @@ struct DamageTrigger extends array
     endmethod
 
     private static thistype prev = 0
-    static method getIndex takes trigger t, string eventName, real lbs returns thistype
+    static method getIndex takes /* 
+        */ trigger t, /* 
+        */ string eventName, /* 
+        */ real lbs /* 
+    */ returns thistype
         local thistype index = getStrIndex(getVerboseStr(eventName), lbs)
         loop
             set prev = index
@@ -606,7 +671,12 @@ struct DamageTrigger extends array
         return true
     endmethod
 
-    static method unregister takes trigger t, string eventName, real lbs, boolean reset returns boolean
+    static method unregister takes /*
+        */ trigger t, /*
+        */ string eventName, /*
+        */ real lbs, /*
+        */ boolean reset /*
+    */ returns boolean
         return getIndex(t, eventName, lbs).unregisterByIndex(reset)
     endmethod
 
@@ -620,10 +690,10 @@ struct DamageTrigger extends array
             local boolean mod = cat <= DAMAGE
         endif
 
-        if callbackInProgress then
+        if callbacksInProgress then
             return
         endif
-        set callbackInProgress = true
+        set callbacksInProgress = true
         call DisableTrigger(damagingTrigger)
         call DisableTrigger(damagedTrigger)
         call EnableTrigger(recursiveTrigger)
@@ -714,9 +784,13 @@ struct DamageTrigger extends array
         call DisableTrigger(recursiveTrigger)
         call EnableTrigger(damagingTrigger)
         call EnableTrigger(damagedTrigger)
-        set callbackInProgress = false
+        set callbacksInProgress = false
     endmethod
 
+/*
+    Used by RegisterDamageEngineEx to create triggers behind-the-scenes,
+    allowing the user to simply pass the function they want to execute.
+*/
     static trigger array autoTriggers
     static boolexpr array autoFuncs
     static integer autoN = 0
@@ -834,10 +908,10 @@ struct Damage extends array
     static if USE_EXTRA then
         private static method onAOEEnd takes nothing returns nothing
             call DamageTrigger.AOE.run()
-            set udg_DamageEventAOE       = 1
-            set udg_DamageEventLevel     = 1
+            set udg_DamageEventAOE = 1
+            set udg_DamageEventLevel = 1
             set udg_EnhancedDamageTarget = null
-            set udg_AOEDamageSource      = null
+            set udg_AOEDamageSource = null
             call GroupClear(udg_DamageEventAOEGroup)
         endmethod
     endif
@@ -850,7 +924,7 @@ struct Damage extends array
         endif
     endmethod
 
-    private method doPreEvents takes boolean natural returns boolean
+    private method runDamagingEvents takes boolean natural returns boolean
 
         static if USE_ARMOR_MOD then
             set this.armorType    = BlzGetUnitIntegerField(this.targetUnit, UNIT_IF_ARMOR_TYPE)
@@ -906,17 +980,17 @@ struct Damage extends array
             exitwhen i == 0
             set i = i - 1
             set i.stackRef.recursiveTrig.trigFrozen = false
-            set i.stackRef.recursiveTrig.levelsDeep = 0
+            set i.stackRef.recursiveTrig.ownRecursiveDepth = 0
         endloop
 
         call EnableTrigger(damagingTrigger)
         call EnableTrigger(damagedTrigger)
 
-        set kicking = false
+        set recursiveCallbaksInProgress = false
         set damageStack = 0
         set prepped = 0
-        set callbackInProgress = false
-        set sleepLevel = 0
+        set callbacksInProgress = false
+        set recursiveCallbackDepth = 0
         call GroupClear(recursionSources)
         call GroupClear(recursionTargets)
 
@@ -927,27 +1001,33 @@ struct Damage extends array
         local Damage i = 0
         local integer exit
 
-        if eventsRun then
-            set eventsRun = false
+        if nativeEventsCompleted then
+            set nativeEventsCompleted = false
             call afterDamage()
         endif
 
-        if isNotNativeRecursiveDamage and not kicking then
+        if isNotNativeRecursiveDamage and not recursiveCallbaksInProgress then
             if damageStack != 0 then
-                set kicking = true
+                set recursiveCallbaksInProgress = true
                 loop
-                    set sleepLevel = sleepLevel + 1
+                /*
+                    Use two loops. The outer loop handles all normal event
+                    execution, while the inner loop intelligently handles
+                    recursive execution (when it's used).
+                */
+                    set recursiveCallbackDepth = recursiveCallbackDepth + 1
                     set exit = damageStack
                     loop
                         set prepped = i.stackRef
 
                         if UnitAlive(prepped.targetUnit) then
 
-                            call prepped.doPreEvents(false) //don't evaluate the pre-event
+                            // We don't need to trigger `damagingTrigger` itself, so just call its handler directly.
+                            call prepped.runDamagingEvents(false)
 
                             if prepped.damage > 0.00 then
-                                call DisableTrigger(damagingTrigger) //Force only the after armor event to run.
-                                call EnableTrigger(damagedTrigger)  //in case the user forgot to re-enable this
+                                call DisableTrigger(damagingTrigger) // Disallow `damagingTrigger` because we only want `damageTrigger` to run.
+                                call EnableTrigger(damagedTrigger)   // Re-enable `damagedTrigger` in case the user forgot to do so.
 
                                 set waitingForDamageEventToRun = true
 
@@ -963,12 +1043,15 @@ struct Damage extends array
                                 */ )
                             else
                                 if udg_DamageEventDamageT != 0 then
-                                    //No new events run at all in this case
+                                    //No native events run at all in this case
                                     call DamageTrigger.DAMAGE.run()
                                 endif
 
                                 if prepped.damage < 0.00 then
-                                    //No need for BlzSetEventDamage here
+                                /*
+                                    No need for BlzSetEventDamage/UnitDamageTarget here,
+                                    because we can safely adjust the unit's life instead.
+                                */
                                     call SetWidgetLife( /*
                                         */ prepped.targetUnit, /*
                                         */ GetWidgetLife(prepped.targetUnit) - prepped.damage /*
@@ -996,13 +1079,13 @@ struct Damage extends array
             call Damage.index.setArmor(true)
         endif
         set isNotNativeRecursiveDamage = true
-        set kicking = false
+        set recursiveCallbaksInProgress = false
 
         set waitingForDamageEventToRun = false
 
         if udg_DamageEventDamageT != 0 then
             call DamageTrigger.DAMAGE.run()
-            set eventsRun   = true
+            set nativeEventsCompleted = true
         endif
 
         call finish()
@@ -1010,14 +1093,14 @@ struct Damage extends array
 
     static method operator enabled= takes boolean b returns nothing
         if b then
-            if callbackInProgress then
+            if callbacksInProgress then
                 call EnableTrigger(recursiveTrigger)
             else
                 call EnableTrigger(damagingTrigger)
                 call EnableTrigger(damagedTrigger)
             endif
         else
-            if callbackInProgress then
+            if callbacksInProgress then
                 call DisableTrigger(recursiveTrigger)
             else
                 call DisableTrigger(damagingTrigger)
@@ -1030,14 +1113,17 @@ struct Damage extends array
         return IsTriggerEnabled(damagingTrigger)
     endmethod
 
-    private static boolean arisen = false
+    private static boolean threadCompleted = false
 
-    private static method getOutOfBed takes nothing returns nothing
+    private static method asyncCallbackSafeCallback takes nothing returns nothing
         if waitingForDamageEventToRun then
-            call failsafeClear() //WarCraft 3 didn't run the DAMAGED event despite running the DAMAGING event.
+        /*
+            This means that WarCraft 3 didn't run the DAMAGED event despite running the DAMAGING event.
+        */
+            call failsafeClear()
         else
             set isNotNativeRecursiveDamage = true
-            set kicking = false
+            set recursiveCallbaksInProgress = false
             call finish()
         endif
 
@@ -1045,20 +1131,22 @@ struct Damage extends array
             call onAOEEnd()
         endif
 
-        set arisen = true
+        set threadCompleted = true
     endmethod
 
-    private static method wakeUp takes nothing returns nothing
-        set callbackInProgress = false
+    private static method asyncCallback takes nothing returns nothing
+        set callbacksInProgress = false
         set Damage.enabled = true
+    /*
+        Open a new thread in case of a thread crash during callback.
+    */
+        call ForForce(bj_FORCE_PLAYER[0], function thistype.asyncCallbackSafeCallback)
 
-        call ForForce(bj_FORCE_PLAYER[0], function thistype.getOutOfBed) //Moved to a new thread in case of a thread crash
-
-        if not arisen then
+        if not threadCompleted then
             //call BJDebugMsg("DamageEngine issue: thread crashed!")
             call unfreeze()
         else
-            set arisen = false
+            set threadCompleted = false
         endif
 
         set Damage.count = 0
@@ -1069,43 +1157,56 @@ struct Damage extends array
     endmethod
 
     private method addRecursive takes nothing returns nothing
+        local thistype currentIndex
+
         if not (this.damage == 0.00) then
 
-            set this.recursiveTrig = DamageTrigger.eventIndex
+            set currentIndex = DamageTrigger.eventIndex
+
+            set this.recursiveTrig = currentIndex
 
             if not this.isCode then
-                // If the recursive damage trigger is executed, this can only
-                // mean that the user has manually dealt damage from a trigger.
-                // Hence flag the damage as being 'code' if they didn't already
-                // manually do this.
+            /*
+                If the recursive damage trigger is executed, this can only
+                mean that the user has manually dealt damage from a trigger.
+                Hence flag the damage as being 'code' if they didn't already
+                manually do this.
+            */
                 set this.isCode = true
                 set this.userType = TYPE_CODE
             endif
 
-            set inception = inception or DamageTrigger.eventIndex.inceptionTrig
+            set inception = inception or /*
+                */ currentIndex.manualRecursionRequested
 
-            if kicking and /*
+            if recursiveCallbaksInProgress and /*
                 */ IsUnitInGroup(this.sourceUnit, recursionSources) and /*
                 */ IsUnitInGroup(this.targetUnit, recursionTargets) /*
             */ then
                 if not inception then
-                    set DamageTrigger.eventIndex.trigFrozen = true
-                elseif not DamageTrigger.eventIndex.trigFrozen then
-                    set DamageTrigger.eventIndex.inceptionTrig = true
-                    if DamageTrigger.eventIndex.levelsDeep < sleepLevel then
-                        set DamageTrigger.eventIndex.levelsDeep = /*
-                            */ DamageTrigger.eventIndex.levelsDeep + 1
-                        if DamageTrigger.eventIndex.levelsDeep >= LIMBO then
-                            set DamageTrigger.eventIndex.trigFrozen = true
+                    set currentIndex.trigFrozen = true
+
+                elseif not currentIndex.trigFrozen then
+                    
+                    set currentIndex.manualRecursionRequested = true
+
+                    if currentIndex.ownRecursiveDepth < recursiveCallbackDepth then
+
+                        set currentIndex.ownRecursiveDepth = /*
+                            */ currentIndex.ownRecursiveDepth + 1
+
+                        if currentIndex.ownRecursiveDepth >= MAX_RECURSIVE_TOLERANCE then
+                            set currentIndex.trigFrozen = true
                         endif
                     endif
                 endif
             endif
 
+            // push the reference to the top of the damage stack.
             set damageStack.stackRef = this
             set damageStack = damageStack + 1
 
-            //call BJDebugMsg("damageStack: " + I2S(damageStack) + " levelsDeep: " + I2S(DamageTrigger.eventIndex.levelsDeep) + " sleepLevel: " + I2S(sleepLevel))
+            //call BJDebugMsg("damageStack: " + I2S(damageStack) + " ownRecursiveDepth: " + I2S(currentIndex.ownRecursiveDepth) + " recursiveCallbackDepth: " + I2S(recursiveCallbackDepth))
         endif
         set inception = false
     endmethod
@@ -1277,7 +1378,7 @@ struct Damage extends array
                 endif
             endif
         else
-            call TimerStart(async, 0.00, false, function Damage.wakeUp)
+            call TimerStart(async, 0.00, false, function Damage.asyncCallback)
             set timerStarted = true
 
             static if USE_EXTRA then
@@ -1290,11 +1391,12 @@ struct Damage extends array
             call GroupAddUnit(udg_DamageEventAOEGroup, d.targetUnit)
         endif
 
-        if d.doPreEvents(true) then
+        if d.runDamagingEvents(true) then
             call DamageTrigger.ZERO.run()
             set isNotNativeRecursiveDamage = true
             call finish()
         endif
+
         set waitingForDamageEventToRun = lastInstance == 0 or /*
             */ attacksImmune[udg_DamageEventAttackT] or /*
             */ damagesImmune[udg_DamageEventDamageT] or /*
@@ -1311,22 +1413,26 @@ struct Damage extends array
 
         if prepped > 0 then
             set prepped = 0
-        elseif callbackInProgress or d.prevAmt == 0.00 then
+        elseif callbacksInProgress or d.prevAmt == 0.00 then
             return false
         elseif waitingForDamageEventToRun then
             set waitingForDamageEventToRun = false
         else
-            // This should only happen for native recursive WarCraft 3 damage
-            // such as Spirit Link, Thorns Aura, or Spiked Carapace / Barricades.
+        /*
+            This should only happen for native recursive WarCraft 3 damage
+            such as Spirit Link, Thorns Aura, or Spiked Carapace / Barricades.
+        */    
             call afterDamage()
             set Damage.index = lastInstance
             set lastInstance = 0
             set d = Damage.index
 
-            // Since the native recursive damage has now wrapped up, we can resume
-            // handling events as normal at this point. This means that the original
-            // target that the DAMAGING event was triggered for is now finally getting
-            // its DAMAGED event.
+        /*
+            Since the native recursive damage has now wrapped up, we can resume
+            handling events as normal at this point. This means that the original
+            target that the DAMAGING event was triggered for is now finally getting
+            its DAMAGED event.
+        */
             set isNotNativeRecursiveDamage = true
 
             call DamageTrigger.setGUIFromStruct(true)
@@ -1371,12 +1477,12 @@ struct Damage extends array
             endif
 
             static if USE_LETHAL then
-                if hasLethal or udg_DamageEventType < 0 then
+                if atLeastOneLethalDamageEventRegistered or udg_DamageEventType < 0 then
                     set udg_LethalDamageHP = /*
                         */ GetWidgetLife(udg_DamageEventTarget) - udg_DamageEventAmount
 
                     if udg_LethalDamageHP <= DEATH_VAL then
-                        if hasLethal then
+                        if atLeastOneLethalDamageEventRegistered then
                             call DamageTrigger.LETHAL.run()
 
                             set udg_DamageEventAmount = /*
@@ -1410,7 +1516,7 @@ struct Damage extends array
 
         call BlzSetEventDamage(udg_DamageEventAmount)
 
-        set eventsRun = true
+        set nativeEventsCompleted = true
 
         if udg_DamageEventAmount == 0.00 then
             call finish()
@@ -1437,7 +1543,7 @@ struct Damage extends array
            set udg_NextDamageType = TYPE_CODE
         endif
 
-        if callbackInProgress then
+        if callbacksInProgress then
             set d = create(src, tgt, amt, a, at, dt, wt)
             set d.isCode = true
             set d.eFilter = FILTER_CODE
@@ -1485,11 +1591,11 @@ struct Damage extends array
         return apply(src, tgt, amt, true, ranged, at, DAMAGE_TYPE_NORMAL, wt)
     endmethod
 
-    /*
-        This part is the most critical to get things kicked off. All the code we've seen up until now
-        is related to event handling, trigger assignment, edge cases, etc. But it's the following that
-        is really quite esesntial for any damage engine - not just this one.
-    */
+/*
+    This part is the most critical to get things kicked off. All the code we've seen up until now
+    is related to event handling, trigger assignment, edge cases, etc. But it's the following that
+    is really quite esesntial for any damage engine - not just this one.
+*/
     private static method onInit takes nothing returns nothing
         set async = CreateTimer()
 
@@ -1511,38 +1617,40 @@ struct Damage extends array
         call TriggerAddCondition(recursiveTrigger, Filter(function Damage.onRecursion))
         call DisableTrigger(recursiveTrigger) //starts disabled. Will be enabled during recursive event handling.
 
-        //For preventing Thorns/Defensive glitch.
-        //Data gathered from https://www.hiveworkshop.com/threads/repo-in-progress-mapping-damage-types-to-their-abilities.316271/
-        set attacksImmune[0]  = false   //ATTACK_TYPE_NORMAL
-        set attacksImmune[1]  = true    //ATTACK_TYPE_MELEE
-        set attacksImmune[2]  = true    //ATTACK_TYPE_PIERCE
-        set attacksImmune[3]  = true    //ATTACK_TYPE_SIEGE
-        set attacksImmune[4]  = false   //ATTACK_TYPE_MAGIC
-        set attacksImmune[5]  = true    //ATTACK_TYPE_CHAOS
-        set attacksImmune[6]  = true    //ATTACK_TYPE_HERO
+    /*
+        For preventing Thorns/Defensive glitch.
+        Data gathered from https://www.hiveworkshop.com/threads/repo-in-progress-mapping-damage-types-to-their-abilities.316271/
+    */        
+        set attacksImmune[0]  = false //ATTACK_TYPE_NORMAL
+        set attacksImmune[1]  = true  //ATTACK_TYPE_MELEE
+        set attacksImmune[2]  = true  //ATTACK_TYPE_PIERCE
+        set attacksImmune[3]  = true  //ATTACK_TYPE_SIEGE
+        set attacksImmune[4]  = false //ATTACK_TYPE_MAGIC
+        set attacksImmune[5]  = true  //ATTACK_TYPE_CHAOS
+        set attacksImmune[6]  = true  //ATTACK_TYPE_HERO
 
-        set damagesImmune[0]  = true    //DAMAGE_TYPE_UNKNOWN
-        set damagesImmune[4]  = true    //DAMAGE_TYPE_NORMAL
-        set damagesImmune[5]  = true    //DAMAGE_TYPE_ENHANCED
-        set damagesImmune[8]  = false   //DAMAGE_TYPE_FIRE
-        set damagesImmune[9]  = false   //DAMAGE_TYPE_COLD
-        set damagesImmune[10] = false   //DAMAGE_TYPE_LIGHTNING
-        set damagesImmune[11] = true    //DAMAGE_TYPE_POISON
-        set damagesImmune[12] = true    //DAMAGE_TYPE_DISEASE
-        set damagesImmune[13] = false   //DAMAGE_TYPE_DIVINE
-        set damagesImmune[14] = false   //DAMAGE_TYPE_MAGIC
-        set damagesImmune[15] = false   //DAMAGE_TYPE_SONIC
-        set damagesImmune[16] = true    //DAMAGE_TYPE_ACID
-        set damagesImmune[17] = false   //DAMAGE_TYPE_FORCE
-        set damagesImmune[18] = false   //DAMAGE_TYPE_DEATH
-        set damagesImmune[19] = false   //DAMAGE_TYPE_MIND
-        set damagesImmune[20] = false   //DAMAGE_TYPE_PLANT
-        set damagesImmune[21] = false   //DAMAGE_TYPE_DEFENSIVE
-        set damagesImmune[22] = true    //DAMAGE_TYPE_DEMOLITION
-        set damagesImmune[23] = true    //DAMAGE_TYPE_SLOW_POISON
-        set damagesImmune[24] = false   //DAMAGE_TYPE_SPIRIT_LINK
-        set damagesImmune[25] = false   //DAMAGE_TYPE_SHADOW_STRIKE
-        set damagesImmune[26] = true    //DAMAGE_TYPE_UNIVERSAL
+        set damagesImmune[0]  = true  //DAMAGE_TYPE_UNKNOWN
+        set damagesImmune[4]  = true  //DAMAGE_TYPE_NORMAL
+        set damagesImmune[5]  = true  //DAMAGE_TYPE_ENHANCED
+        set damagesImmune[8]  = false //DAMAGE_TYPE_FIRE
+        set damagesImmune[9]  = false //DAMAGE_TYPE_COLD
+        set damagesImmune[10] = false //DAMAGE_TYPE_LIGHTNING
+        set damagesImmune[11] = true  //DAMAGE_TYPE_POISON
+        set damagesImmune[12] = true  //DAMAGE_TYPE_DISEASE
+        set damagesImmune[13] = false //DAMAGE_TYPE_DIVINE
+        set damagesImmune[14] = false //DAMAGE_TYPE_MAGIC
+        set damagesImmune[15] = false //DAMAGE_TYPE_SONIC
+        set damagesImmune[16] = true  //DAMAGE_TYPE_ACID
+        set damagesImmune[17] = false //DAMAGE_TYPE_FORCE
+        set damagesImmune[18] = false //DAMAGE_TYPE_DEATH
+        set damagesImmune[19] = false //DAMAGE_TYPE_MIND
+        set damagesImmune[20] = false //DAMAGE_TYPE_PLANT
+        set damagesImmune[21] = false //DAMAGE_TYPE_DEFENSIVE
+        set damagesImmune[22] = true  //DAMAGE_TYPE_DEMOLITION
+        set damagesImmune[23] = true  //DAMAGE_TYPE_SLOW_POISON
+        set damagesImmune[24] = false //DAMAGE_TYPE_SPIRIT_LINK
+        set damagesImmune[25] = false //DAMAGE_TYPE_SHADOW_STRIKE
+        set damagesImmune[26] = true  //DAMAGE_TYPE_UNIVERSAL
     endmethod
 
     //! runtextmacro optional DAMAGE_EVENT_STRUCT_PLUGIN_DMGPKG()
@@ -1637,14 +1745,14 @@ public function DebugStr takes nothing returns nothing
     set udg_ArmorTypeDebugStr[3]   = "WOOD"
     set udg_ArmorTypeDebugStr[4]   = "ETHEREAL"
     set udg_ArmorTypeDebugStr[5]   = "STONE"
-    // -
+    
     // Added 25 July 2017 to allow detection of things like Bash or Pulverize or AOE spread
-    // -
     set udg_DamageEventAOE = 1
     set udg_DamageEventLevel = 1
-    // -
-    // In-game World Editor doesn't allow Attack Type and Damage Type comparisons. Therefore I need to code them as integers into GUI
-    // -
+/*
+    In-game World Editor doesn't allow Attack Type and Damage Type comparisons.
+    Therefore, I need to code them as integers into GUI
+*/
     set udg_ATTACK_TYPE_SPELLS = 0
     set udg_ATTACK_TYPE_NORMAL = 1
     set udg_ATTACK_TYPE_PIERCE = 2
@@ -1675,12 +1783,15 @@ public function DebugStr takes nothing returns nothing
     set udg_DAMAGE_TYPE_SPIRIT_LINK = 24
     set udg_DAMAGE_TYPE_SHADOW_STRIKE = 25
     set udg_DAMAGE_TYPE_UNIVERSAL = 26
-    // -
-    // The below variables don't affect damage amount, but do affect the sound played
-    // They also give important information about the type of attack used.
-    // They can differentiate between ranged and melee for units who are both
-    // -
+    
+/*
+    The below variables don't affect damage amount, but do affect the sound played
+    They also give important information about the type of attack used.
+    They can differentiate between ranged and melee for units who are both
+*/    
+    
     set udg_WEAPON_TYPE_NONE = 0
+
     // Metal Light/Medium/Heavy
     set udg_WEAPON_TYPE_ML_CHOP = 1
     set udg_WEAPON_TYPE_MM_CHOP = 2
@@ -1714,10 +1825,10 @@ public function DebugStr takes nothing returns nothing
     // Rock Heavy
     set udg_WEAPON_TYPE_RH_BASH = 23
 
-    /*
-        Since GUI still doesn't provide Defense Type and Armor Types,
-        I needed to include the below:
-    */
+/*
+    Since GUI still doesn't provide Defense Type and Armor Types,
+    I needed to include the below:
+*/
     set udg_ARMOR_TYPE_NONE = 0
     set udg_ARMOR_TYPE_FLESH = 1
     set udg_ARMOR_TYPE_METAL = 2
@@ -1734,13 +1845,13 @@ public function DebugStr takes nothing returns nothing
     set udg_DEFENSE_TYPE_DIVINE = 6
     set udg_DEFENSE_TYPE_UNARMORED = 7
 
-    /*
-        The remaining stuff is an ugly 'optimization' that I did a long
-        time ago, thinking that it would improve performance for GUI users
-        by not having so many different triggerconditions evaluating per
-        damage event. I am not sure if it even worked; in Lua it might
-        perform worse, but in vJass it remains to be tested.
-    */
+/*
+    The remaining stuff is an ugly 'optimization' that I did a long
+    time ago, thinking that it would improve performance for GUI users
+    by not having so many different triggerconditions evaluating per
+    damage event. I am not sure if it even worked; in Lua it might
+    perform worse, but in vJass it remains to be tested.
+*/
 
     set udg_UNIT_CLASS_HERO = 0
     set udg_UNIT_CLASS_DEAD = 1
