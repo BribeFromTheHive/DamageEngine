@@ -1,5 +1,7 @@
 /*
-    vJass Damage Engine 5.8.0.1
+    vJass Damage Engine 5.A.0.0 PREVIEW
+    
+    This update enables compatibility with AttackIndexer.
 */
 /*
 JASS API:
@@ -79,20 +81,21 @@ JASS API:
 
         boolean configured //set to True after configuring any filters listed below.
 
+    Apply custom filters after setting any desired udg_DamageFilter variables (for GUI).
+    Alternatively, vJass users can set these instead. Just be mindful to set the variable
+    "configured" to true after settings these:
+      unit    source
+      unit    target
+      integer sourceType
+      integer targetType
+      integer sourceBuff
+      integer targetBuff
+      real    damageMin
+      integer attackType
+      integer damageType
+      integer userType
+
         method configure takes nothing returns nothing
-        // Apply custom filters after setting any desired udg_DamageFilter variables (for GUI).
-        // Alternatively, vJass users can set these instead. Just be mindful to set the variable
-        // "configured" to true after settings these.
-        unit    source
-        unit    target
-        integer sourceType
-        integer targetType
-        integer sourceBuff
-        integer targetBuff
-        real    damageMin
-        integer attackType
-        integer damageType
-        integer userType
 
     The string in the aruments below requires the following API:
       "" for standard damage event
@@ -160,7 +163,7 @@ JASS API:
 */
 
 //===========================================================================
-library DamageEngine
+library DamageEngine requires optional AttackIndexer
 globals
     private constant boolean USE_GUI = true //If you don't use any of the GUI events, set to false to slightly improve performance
 
@@ -478,11 +481,11 @@ struct DamageTrigger extends array
     endmethod
 
     static method setGUIFromStruct takes boolean full returns nothing
-        set udg_DamageEventAmount       = Damage.index.damage
-        set udg_DamageEventAttackT      = GetHandleId(Damage.index.attackType)
-        set udg_DamageEventDamageT      = GetHandleId(Damage.index.damageType)
-        set udg_DamageEventWeaponT      = GetHandleId(Damage.index.weaponType)
-        set udg_DamageEventType         = Damage.index.userType
+        set udg_DamageEventAmount  = Damage.index.damage
+        set udg_DamageEventAttackT = GetHandleId(Damage.index.attackType)
+        set udg_DamageEventDamageT = GetHandleId(Damage.index.damageType)
+        set udg_DamageEventWeaponT = GetHandleId(Damage.index.weaponType)
+        set udg_DamageEventType    = Damage.index.userType
         
         static if USE_ARMOR_MOD then
             set udg_DamageEventArmorPierced = Damage.index.armorPierced
@@ -490,31 +493,33 @@ struct DamageTrigger extends array
             set udg_DamageEventDefenseT     = Damage.index.defenseType
         endif
         if full then
-            set udg_DamageEventSource   = Damage.index.sourceUnit
-            set udg_DamageEventTarget   = Damage.index.targetUnit
-            set udg_DamageEventPrevAmt  = Damage.index.prevAmt
-            set udg_IsDamageAttack      = Damage.index.isAttack
-            set udg_IsDamageCode        = Damage.index.isCode
-            set udg_IsDamageSpell       = Damage.index.isSpell
+            set udg_DamageEventSource  = Damage.index.sourceUnit
+            set udg_DamageEventTarget  = Damage.index.targetUnit
+            set udg_DamageEventPrevAmt = Damage.index.prevAmt
+            set udg_IsDamageAttack     = Damage.index.isAttack
+            set udg_IsDamageCode       = Damage.index.isCode
+            set udg_IsDamageSpell      = Damage.index.isSpell
             
+            //! runtextmacro optional ATTACK_INDEXER_GUI_VARS()
+
             static if USE_MELEE_RANGE then
-                set udg_IsDamageMelee       = Damage.index.isMelee
-                set udg_IsDamageRanged      = Damage.index.isRanged
+                set udg_IsDamageMelee  = Damage.index.isMelee
+                set udg_IsDamageRanged = Damage.index.isRanged
             endif
         endif
     endmethod
 
     static method setStructFromGUI takes nothing returns nothing
-        set Damage.index.damage        = udg_DamageEventAmount
-        set Damage.index.attackType    = ConvertAttackType(udg_DamageEventAttackT)
-        set Damage.index.damageType    = ConvertDamageType(udg_DamageEventDamageT)
-        set Damage.index.weaponType    = ConvertWeaponType(udg_DamageEventWeaponT)
-        set Damage.index.userType      = udg_DamageEventType
+        set Damage.index.damage     = udg_DamageEventAmount
+        set Damage.index.attackType = ConvertAttackType(udg_DamageEventAttackT)
+        set Damage.index.damageType = ConvertDamageType(udg_DamageEventDamageT)
+        set Damage.index.weaponType = ConvertWeaponType(udg_DamageEventWeaponT)
+        set Damage.index.userType   = udg_DamageEventType
         
         static if USE_ARMOR_MOD then
-            set Damage.index.armorPierced  = udg_DamageEventArmorPierced
-            set Damage.index.armorType     = udg_DamageEventArmorT
-            set Damage.index.defenseType   = udg_DamageEventDefenseT
+            set Damage.index.armorPierced = udg_DamageEventArmorPierced
+            set Damage.index.armorType    = udg_DamageEventArmorT
+            set Damage.index.defenseType  = udg_DamageEventDefenseT
         endif
     endmethod
 
@@ -528,21 +533,21 @@ struct DamageTrigger extends array
     private static method getStrIndex takes string var, real lbs returns thistype
         local integer root = R2I(lbs)
         if (var == "udg_DamageModifierEvent" and root < 4) or var == "udg_PreDamageEvent" then
-            set root    = MOD
+            set root = MOD
         elseif var == "udg_DamageModifierEvent" or var == "udg_ArmorDamageEvent" then
-            set root    = SHIELD
+            set root = SHIELD
         elseif (var == "udg_DamageEvent" and root == 2 or root == 0) or var == "udg_ZeroDamageEvent" then
-            set root    = ZERO
+            set root = ZERO
         elseif var == "udg_DamageEvent" or var == "udg_OnDamageEvent" then
-            set root    = DAMAGE
+            set root = DAMAGE
         elseif var == "udg_AfterDamageEvent" then
-            set root    = AFTER
+            set root = AFTER
         elseif var == "udg_LethalDamageEvent" then
-            set root    = LETHAL
+            set root = LETHAL
         elseif var == "udg_AOEDamageEvent" or var == "udg_SourceDamageEvent" then
-            set root    = AOE
+            set root = AOE
         else
-            set root    = 0
+            set root = 0
             //! runtextmacro optional DAMAGE_EVENT_REG_PLUGIN_GDD()
             //! runtextmacro optional DAMAGE_EVENT_REG_PLUGIN_PDD()
             //! runtextmacro optional DAMAGE_EVENT_REG_PLUGIN_01()
@@ -970,7 +975,7 @@ struct Damage extends array
 
             return false
         endif
-        return true
+        return true //return value is based on whether the event is a 0 damage event (true) or not (false).
     endmethod
 
     private static method unfreeze takes nothing returns nothing
@@ -997,7 +1002,7 @@ struct Damage extends array
         //call BJDebugMsg("Cleared up the groups")
     endmethod
 
-    static method finish takes nothing returns nothing
+    static method runAfterDamageEvents takes nothing returns nothing
         local Damage i = 0
         local integer exit
 
@@ -1088,7 +1093,7 @@ struct Damage extends array
             set nativeEventsCompleted = true
         endif
 
-        call finish()
+        call runAfterDamageEvents()
     endmethod
 
     static method operator enabled= takes boolean b returns nothing
@@ -1124,7 +1129,7 @@ struct Damage extends array
         else
             set isNotNativeRecursiveDamage = true
             set recursiveCallbaksInProgress = false
-            call finish()
+            call runAfterDamageEvents()
         endif
 
         static if USE_EXTRA then
@@ -1249,7 +1254,7 @@ struct Damage extends array
     endmethod
 
     private static method createFromEvent takes nothing returns Damage
-        local Damage d = create( /*
+        local Damage d = thistype.create( /*
             */ GetEventDamageSource(), /*
             */ GetTriggerUnit(), /*
             */ GetEventDamage(), /*
@@ -1289,6 +1294,10 @@ struct Damage extends array
             set d.userType = 0
 
             if d.damageType == DAMAGE_TYPE_NORMAL and d.isAttack then
+
+                // Added in version 5.A in order to allow an optional external 
+                // Attack Indexer system to reset the event weapon type to normal.
+                //! runtextmacro optional ATTACK_INDEXER_ADJUSTMENTS()
 
                 static if USE_MELEE_RANGE then
                     set d.isMelee = IsUnitType(d.sourceUnit, UNIT_TYPE_MELEE_ATTACKER)
@@ -1332,14 +1341,14 @@ struct Damage extends array
         return d
     endmethod
 
-    private static method onRecursion takes nothing returns boolean
+    private static method onRecursiveDamageCallback takes nothing returns boolean
         local Damage d  = Damage.createFromEvent()
         call d.addRecursive()
         call BlzSetEventDamage(0.00)
         return false
     endmethod
 
-    private static method onDamaging takes nothing returns boolean
+    private static method onDamagingCallback takes nothing returns boolean
         local Damage d = Damage.createFromEvent()
 
         //call BJDebugMsg("Pre-damage event running for " + GetUnitName(GetTriggerUnit()))
@@ -1359,7 +1368,7 @@ struct Damage extends array
                     call failsafeClear() //Not an overlapping event - just wrap it up
                 endif
             else
-                call finish() //wrap up any previous damage index
+                call runAfterDamageEvents() //wrap up any previous damage index
             endif
 
             static if USE_EXTRA then
@@ -1394,7 +1403,7 @@ struct Damage extends array
         if d.runDamagingEvents(true) then
             call DamageTrigger.ZERO.run()
             set isNotNativeRecursiveDamage = true
-            call finish()
+            call runAfterDamageEvents()
         endif
 
         set waitingForDamageEventToRun = lastInstance == 0 or /*
@@ -1405,7 +1414,7 @@ struct Damage extends array
         return false
     endmethod
 
-    private static method onDamaged takes nothing returns boolean
+    private static method onDamagedCallback takes nothing returns boolean
         local real r = GetEventDamage()
         local Damage d = Damage.index
 
@@ -1519,7 +1528,7 @@ struct Damage extends array
         set nativeEventsCompleted = true
 
         if udg_DamageEventAmount == 0.00 then
-            call finish()
+            call runAfterDamageEvents()
         endif
 
         // This return statement was needed years ago to avoid potential crashes on Mac.
@@ -1563,7 +1572,7 @@ struct Damage extends array
 
             set d = Damage.index
 
-            call finish()
+            call runAfterDamageEvents()
         endif
 
         call clearNexts()
@@ -1607,14 +1616,14 @@ struct Damage extends array
         set recursiveTrigger = CreateTrigger() //Moved from globals block as per request of user Ricola3D
 
         call TriggerRegisterAnyUnitEventBJ(damagingTrigger, EVENT_PLAYER_UNIT_DAMAGING)
-        call TriggerAddCondition(damagingTrigger, Filter(function Damage.onDamaging))
+        call TriggerAddCondition(damagingTrigger, Filter(function Damage.onDamagingCallback))
 
         call TriggerRegisterAnyUnitEventBJ(damagedTrigger, EVENT_PLAYER_UNIT_DAMAGED)
-        call TriggerAddCondition(damagedTrigger, Filter(function Damage.onDamaged))
+        call TriggerAddCondition(damagedTrigger, Filter(function Damage.onDamagedCallback))
 
         //For recursion
         call TriggerRegisterAnyUnitEventBJ(recursiveTrigger, EVENT_PLAYER_UNIT_DAMAGING)
-        call TriggerAddCondition(recursiveTrigger, Filter(function Damage.onRecursion))
+        call TriggerAddCondition(recursiveTrigger, Filter(function Damage.onRecursiveDamageCallback))
         call DisableTrigger(recursiveTrigger) //starts disabled. Will be enabled during recursive event handling.
 
     /*
