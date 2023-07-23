@@ -1,5 +1,5 @@
 /*
-    vJass Damage Engine 5.A.0.0 PREVIEW
+    vJass Damage Engine 5.A.0.0 
     
     This update enables compatibility with AttackIndexer.
 */
@@ -1162,7 +1162,7 @@ struct Damage extends array
     endmethod
 
     private method addRecursive takes nothing returns nothing
-        local thistype currentIndex
+        local DamageTrigger currentIndex
 
         if not (this.damage == 0.00) then
 
