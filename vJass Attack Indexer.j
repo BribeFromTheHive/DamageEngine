@@ -1,5 +1,5 @@
 library AttackIndexer initializer Init requires Table
-// vJass version 1.1.0.0
+// vJass version 1.1.0.1
 
 //requires Globals: 
 // - unit udg_DamageEventAttackTarget
@@ -103,6 +103,9 @@ private function OnUnitAttacked takes nothing returns boolean
 
     // Clean any old data from the -12th attack.
     call t[point].flush()
+    static if USE_GUI_HASH then
+        call FlushChildHashtable(udg_AttackIndexerHash, t[point])
+    endif
 
     // I'd like to allow the user to use the normal 'Unit is Attacked' event here.
     // Therefore, to avoid recursion issues, this variable must be attached to the
