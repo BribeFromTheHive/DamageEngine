@@ -1,7 +1,7 @@
 library AttackIndexer initializer Init requires Table
-// vJass version 1.1.0.1
+// vJass version 1.1.0.2
 
-//requires Globals: 
+//requires Globals:
 // - unit udg_DamageEventAttackTarget
 // - boolean udg_DamageFromPrimaryAttack
 
@@ -15,17 +15,22 @@ library AttackIndexer initializer Init requires Table
 globals
     private constant boolean USE_GUI_HASH = true
 
-    // Indexed to UnitUserData from UnitEvent:
-    private TableArray array table
-    private integer array points
-
-    // UnitData structure
-    private integer array attack1
-    private integer array attack2
-
-    // AttackData structure
-    private constant integer TARGET_INDEX = -1 //stored in TableArray[0-11]
+    // Attack data structure stored in TableArray[0-11]
+    private constant integer TARGET_INDEX   = -1
+    private constant integer RESOLVED_INDEX = -2
 endglobals
+
+private struct UnitData extends array
+    TableArray table
+    integer points
+    boolean circled
+    integer attack1
+    integer attack2
+
+    method operator unit takes nothing returns unit
+        return udg_UDexUnits[this]
+    endmethod
+endstruct
 
 struct Attack extends array
     unit attackTarget
@@ -42,17 +47,20 @@ function AttackIndexer__AdjustOnDamage takes Damage d returns nothing
     local integer point2D = GetHandleId(d.weaponType)
     local integer tablePoint = point2D / 2
     local integer trueWeapon
-    local integer id = GetUnitUserData(d.sourceUnit)
-    local TableArray t = table[id]
+    local UnitData id = GetUnitUserData(d.sourceUnit)
+    local TableArray t = id.table
+
+    //A simple flag to notify that the attack actually hit something.
+    set t[tablePoint].boolean[RESOLVED_INDEX] = true
 
     set a.attackHashKey = t[tablePoint]
     set a.attackTarget = t[tablePoint].unit[TARGET_INDEX]
     set a.isPrimaryAttack = tablePoint * 2 == point2D
 
     if a.isPrimaryAttack then
-        set trueWeapon = attack1[id]
+        set trueWeapon = id.attack1
     else
-        set trueWeapon = attack2[id]
+        set trueWeapon = id.attack2
     endif
 
     // Put the weapon type back to normal; this means
@@ -71,16 +79,24 @@ endfunction
     set udg_DamageHashKeyForAttack  = Attack(Damage.index).attackHashKey
 //! endtextmacro
 
-private function AssignAttacks takes integer id returns nothing
-    set attack1[id] = BlzGetUnitWeaponIntegerField(udg_UDexUnits[id], UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, 0)
-    set attack2[id] = BlzGetUnitWeaponIntegerField(udg_UDexUnits[id], UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, 1)
+private function AssignAttacks takes UnitData id returns nothing
+    set id.attack1 = BlzGetUnitWeaponIntegerField(/*
+        */ id.unit,/*
+        */ UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, /*
+        */ 0 /*
+    */)
+    set id.attack2 = BlzGetUnitWeaponIntegerField(/*
+        */ id.unit,/*
+        */ UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, /*
+        */ 1 /*
+    */)
 endfunction
 
 private function OnUnitAttacked takes nothing returns boolean
     local unit attackedUnit = GetTriggerUnit()
     local unit attacker = GetAttacker()
-    local integer id = GetUnitUserData(attacker)
-    local TableArray t = table[id]
+    local UnitData id = GetUnitUserData(attacker)
+    local TableArray t = id.table
     local integer point
 
     if t == 0 then
@@ -88,7 +104,7 @@ private function OnUnitAttacked takes nothing returns boolean
         // primary attack and secondary attack, we can only
         // have 12 unique simultanous attacks per attacker.
         set t = TableArray[12]
-        set table[id] = t
+        set id.table = t
         call AssignAttacks(id)
 
         static if USE_GUI_HASH then
@@ -99,12 +115,26 @@ private function OnUnitAttacked takes nothing returns boolean
     endif
 
     // The hashtable will initialize point first to 0.
-    set point = points[id]
+    set point = id.points
 
-    // Clean any old data from the -12th attack.
-    call t[point].flush()
-    static if USE_GUI_HASH then
-        call FlushChildHashtable(udg_AttackIndexerHash, t[point])
+    if id.circled then
+        if not t[point].boolean[RESOLVED_INDEX] then
+            call BJDebugMsg("The attack " + I2S(point) + " has either missed, or the unit is attacking too quickly for Attack Indexer to keep up with.")
+        endif
+
+        // Clean old data from 12 attacks ago.
+        call t[point].flush()
+        static if USE_GUI_HASH then
+            call FlushChildHashtable(udg_AttackIndexerHash, t[point])
+        endif
+    endif
+
+    if point < 11 then
+        set id.points = point + 1
+    else
+        // Wrap around so as to recycle -12th indices.
+        set id.points = 0
+        set id.circled = true
     endif
 
     // I'd like to allow the user to use the normal 'Unit is Attacked' event here.
@@ -114,15 +144,18 @@ private function OnUnitAttacked takes nothing returns boolean
 
     set t[point].unit[TARGET_INDEX] = attackedUnit
 
-    call BlzSetUnitWeaponIntegerField(attacker, UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, 0, point * 2)
-    call BlzSetUnitWeaponIntegerField(attacker, UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, 1, point * 2 + 1)
-
-    set point = point + 1
-    if point > 11 then
-        // Wrap around so as to recycle -12th indices.
-        set point = 0
-    endif
-    set points[id] = point
+    call BlzSetUnitWeaponIntegerField(/*
+        */ attacker, /*
+        */ UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, /*
+        */ 0, /*
+        */ point * 2 /*
+    */)
+    call BlzSetUnitWeaponIntegerField(/*
+        */ attacker, /*
+        */ UNIT_WEAPON_IF_ATTACK_WEAPON_SOUND, /*
+        */ 1, /*
+        */ point * 2 + 1 /*
+    */)
 
     set attackedUnit = null
     set attacker = null
@@ -130,29 +163,32 @@ private function OnUnitAttacked takes nothing returns boolean
 endfunction
 
 private function OnUnitTransformed takes nothing returns boolean
-    local Table t = table[udg_UDex]
+    local UnitData id = udg_UDex
+    local Table t = id.table
     if t > 0 then
-        call AssignAttacks(udg_UDex)
+        call AssignAttacks(id)
     endif
     return false
 endfunction
 
 private function OnUnitRemoved takes nothing returns boolean
     local integer i = 0
-    if table[udg_UDex] > 0 then
+    local UnitData id = udg_UDex
+    if id.table > 0 then
         // Clear out data from memory
-        call table[udg_UDex].flush()
+        call id.table.flush()
 
         static if USE_GUI_HASH then
             loop
-                call FlushChildHashtable(udg_AttackIndexerHash, table[udg_UDex][i])
+                call FlushChildHashtable(udg_AttackIndexerHash, id.table[i])
                 exitwhen i == 11
                 set i = i + 1
             endloop
         endif
 
-        set table[udg_UDex] = 0
-        set points[udg_UDex] = 0
+        set id.table = 0
+        set id.points = 0
+        set id.circled = false
     endif
     return false
 endfunction
