@@ -1,5 +1,5 @@
 library AttackIndexer requires Table
-// vJass version 1.1.0.3
+// vJass version 1.1.0.4
 
 //requires Globals:
 // - unit udg_DamageEventAttackTarget
@@ -13,15 +13,15 @@ library AttackIndexer requires Table
 // - hashtable udg_AttackIndexerHash
 
 globals
-    private constant boolean USE_GUI_HASH = true
-    private constant boolean DEBUG = true
-
     // Attack data structure stored in TableArray[0-11]
     private constant integer TARGET_INDEX   = -1
     private constant integer RESOLVED_INDEX = -2
 endglobals
 
 private struct UnitData extends array
+    static constant boolean USE_GUI_HASH = true
+    static constant boolean DEBUG = true
+
     TableArray tableArray
     integer points
     boolean circled
@@ -60,7 +60,7 @@ private struct UnitData extends array
             set this.tableArray = tableArray
             call this.assignAttackIndices()
 
-            static if USE_GUI_HASH then
+            static if thistype.USE_GUI_HASH then
                 if udg_AttackIndexerHash == null then
                     set udg_AttackIndexerHash = InitHashtable()
                 endif
@@ -71,15 +71,18 @@ private struct UnitData extends array
         set point = this.points
 
         if this.circled then
-            static if DEBUG then
+            static if thistype.DEBUG then
                 if not tableArray[point].boolean[RESOLVED_INDEX] then
-                    call BJDebugMsg("The attack " + I2S(point) + " has either missed, or the unit is attacking too quickly for Attack Indexer to keep up with.")
+                    call BJDebugMsg( /*
+                        */ "The attack with hashkey " + I2S(tableArray[point]) + /*
+                        */ " has either missed, or the unit is attacking too quickly for Attack Indexer to keep up with." /*
+                    */ )
                 endif
             endif
 
             // Clean old data from 12 attacks ago.
             call tableArray[point].flush()
-            static if USE_GUI_HASH then
+            static if thistype.USE_GUI_HASH then
                 call FlushChildHashtable(udg_AttackIndexerHash, tableArray[point])
             endif
         endif
@@ -124,7 +127,7 @@ private struct UnitData extends array
             // Clear out data from memory
             call this.tableArray.flush()
 
-            static if USE_GUI_HASH then
+            static if thistype.USE_GUI_HASH then
                 loop
                     call FlushChildHashtable(udg_AttackIndexerHash, this.tableArray[hashIndex])
                     exitwhen hashIndex == 11
